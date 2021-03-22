@@ -20,10 +20,13 @@ connect(db_user, db_password, db_server, db, print_url=False)
 home_dir = str(Path.home())
 PROJECT_DIR = os.path.join(home_dir, ".dif")
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
-DATA_DIR = os.path.join(PROJECT_DIR, "data")
+CACHE_DIR = os.path.join(PROJECT_DIR, "cache")
 
 os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Cached information
+BIOASSAY_CACHE = os.path.join(CACHE_DIR, "bioassays.json")
 
 # Logging Configuration
 LOG_FILE_PATH = os.path.join(LOG_DIR, "dif.log")

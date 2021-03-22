@@ -1,36 +1,33 @@
 """Methods for executing pipeline."""
-import os
 import logging
 import pandas as pd
-import numpy as np
 
-from typing import Union
-from ebel_rest import query as rest_query, connect
+from ebel_rest import query as rest_query
 
 from dif.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
 class InteractorFinder:
 
-    def __init__(self, name_list: str, database: str, user: str, password: str, server: str,
-                 print_url: bool = False):
-        connect(user, password, server, database, print_url=print_url)
+    def __init__(self, name_list: str):
         self.names = name_list
         self.results = None
 
     def __len__(self):
         return len(self.results)
 
-    def query(self, sql: str, print_sql: bool = False) -> pd.DataFrame:
+    @staticmethod
+    def __query(sql: str, print_sql: bool = False) -> pd.DataFrame:
         if print_sql:
             print(sql)
         results = rest_query.sql(sql)
         if results:
             return results.table
         else:
-            print("No results!")
+            logger.warning("No results!")
 
     def find_interactors(self,
                          target_type: str = 'protein',
@@ -76,7 +73,7 @@ class InteractorFinder:
         else:
             formatted_sql = sql.format("", target_type, self.names, edge_class)
 
-        df_results = self.query(formatted_sql, print_sql=print_sql)
+        df_results = self.__query(formatted_sql, print_sql=print_sql)
 
         self.results = df_results[cols]
 
@@ -131,8 +128,8 @@ class InteractorFinder:
 
         logger.info("Querying database...")
 
-        pure_results = self.query(sql=formatted_pure_sql, print_sql=print_sql)
-        capsule_results = self.query(sql=formatted_capsule_sql, print_sql=print_sql)
+        pure_results = self.__query(sql=formatted_pure_sql, print_sql=print_sql)
+        capsule_results = self.__query(sql=formatted_capsule_sql, print_sql=print_sql)
 
         df_concat = pd.concat([pure_results, capsule_results], axis=0)
 
@@ -170,7 +167,7 @@ def get_interactor_list(results_df: pd.DataFrame):
     for other_list in results_df.interactor_involved_other:
         if other_list is not None:
             for other in other_list:
-                interactors.add(gene)
+                interactors.add(other)
     for name in results_df.interactor_name:
         interactors.add(name)
 
