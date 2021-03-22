@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
-"""Tests for `druggable_interactor_finder` package."""
+"""Tests for `dif` package."""
 
 import pytest
 
 from click.testing import CliRunner
 
-from druggable_interactor_finder import druggable_interactor_finder
-from druggable_interactor_finder import cli
+from dif import cli
 
 
 @pytest.fixture
@@ -31,7 +30,7 @@ def test_command_line_interface():
     runner = CliRunner()
     result = runner.invoke(cli.main)
     assert result.exit_code == 0
-    assert 'druggable_interactor_finder.cli.main' in result.output
+    assert 'dif.cli.main' in result.output
     help_result = runner.invoke(cli.main, ['--help'])
     assert help_result.exit_code == 0
     assert '--help  Show this message and exit.' in help_result.output

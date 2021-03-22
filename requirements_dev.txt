@@ -1,0 +1,10 @@
+click
+ebel-rest
+pandas
+matplotlib
+tqdm
+requests
+tox
+pytest
+coverage
+flake8

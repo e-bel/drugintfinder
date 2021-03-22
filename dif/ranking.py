@@ -5,8 +5,9 @@ import requests
 import pandas as pd
 
 from tqdm.notebook import tqdm
+from ebel_rest import query as rest_query
 
-from dif.constants import PUBCHEM_BIOASSAY_API
+from dif.constants import PUBCHEM_BIOASSAY_API, UNIPROT_ID
 
 
 def count_bioassays(di_targets: list) -> list:
@@ -22,9 +23,9 @@ def count_bioassays(di_targets: list) -> list:
     dict
         Key is the gene symbol, value is the number of BioAssays available.
     """
-    counts = []
+    counts = dict()
     for symbol in tqdm(di_targets, desc="Counting BioAssays"):
-        up_acc_results = b.query_class(class_name='protein', columns=['uniprot.id'], pure=True, name=symbol)
+        up_acc_results = rest_query.sql(UNIPROT_ID.format(symbol))
 
         if 'uniprot' not in up_acc_results[0]:
             up_acc = up_acc_results[1]['uniprot']
@@ -35,4 +36,6 @@ def count_bioassays(di_targets: list) -> list:
         filled = PUBCHEM_BIOASSAY_API.format(up_acc)
         resp = requests.get(filled)
         number_assays = len(resp.text.split("\n")) - 1  # Remove header
-        counts.append((symbol, number_assays))
+        counts[symbol] = number_assays
+
+    return counts

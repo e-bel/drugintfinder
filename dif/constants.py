@@ -2,6 +2,8 @@
 
 PUBCHEM_BIOASSAY_API = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/assay/target/accession/{}/aids/TXT"
 
+UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}'"
+
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}
 .inE(){{class:{} ,as:relation, where:(@class != 'causes_no_change')}}

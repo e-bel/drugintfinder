@@ -48,7 +48,7 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint: ## check style with flake8
-	flake8 druggable_interactor_finder tests
+	flake8 dif tests
 
 test: ## run tests quickly with the default Python
 	pytest
@@ -57,15 +57,15 @@ test-all: ## run tests on every Python version with tox
 	tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source druggable_interactor_finder -m pytest
+	coverage run --source dif -m pytest
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/druggable_interactor_finder.rst
+	rm -f docs/dif.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ druggable_interactor_finder
+	sphinx-apidoc -o docs/ dif
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html

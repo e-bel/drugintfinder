@@ -1,11 +1,11 @@
-"""Console script for druggable_interactor_finder."""
+"""Console script for dif."""
 import sys
 import click
 
 
 @click.command()
 def main(args=None):
-    """Console script for druggable_interactor_finder."""
+    """Console script for dif."""
     click.echo("Replace this message by putting your code into "
                "dif.cli.main")
     click.echo("See click documentation at https://click.palletsprojects.com/")
