@@ -86,6 +86,7 @@ INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 RETURN
 pmod.type as pmod_type,
 relation.@class as relation_type,
+target.name as target_symbol,
 target.bel as target_bel,
 target.@class as target_type,
 interactor.bel as interactor_bel,
@@ -106,6 +107,7 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         pmod.type as pmod_type,
         relation.@class as relation_type,
         relation.citation.pub_date.subString(0, 4) as rel_pub_year,
+        target.name as target_symbol,
         target.bel as target_bel,
         target.@class as target_type,
         interactor.bel as interactor_bel,
@@ -149,6 +151,7 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         relation.@class as relation_type,
         relation.evidence as evidence,
         relation.citation.pub_date.subString(0, 4) as rel_pub_year,
+        target.name as target_symbol,
         target.bel as target_bel,
         target.@class as target_type,
         relation.pmid as pmid,

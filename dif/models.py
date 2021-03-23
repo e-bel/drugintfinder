@@ -4,7 +4,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from dif.defaults import engine
 
 Base = declarative_base()
-Base.metadata.create_all(bind=engine)
 
 
 class MetaClass:
@@ -22,6 +21,7 @@ class Druggable(MetaClass, Base):
     chembl_id = Column(VARCHAR(255))
     pubchem_id = Column(VARCHAR(255))
     drug_patents = Column(VARCHAR(1000))
+    drug_products = Column(VARCHAR(1000))
     interactor_type = Column(VARCHAR(100))
     interactor_bel = Column(VARCHAR(1000))
     interactor_name = Column(VARCHAR(255))
@@ -56,3 +56,6 @@ class General(MetaClass, Base):
     pmid = Column(INTEGER)
     pmc = Column(VARCHAR(255))
     target_species = Column(INTEGER)
+
+
+Base.metadata.create_all(bind=engine)
