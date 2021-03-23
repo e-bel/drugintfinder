@@ -4,7 +4,9 @@ import pandas as pd
 
 from ebel_rest import query as rest_query
 
-from dif.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY
+from dif.defaults import session
+from dif.models import General, Druggable
+from dif.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY, EDGE_MAPPER
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -12,8 +14,8 @@ logger.setLevel(logging.DEBUG)
 
 class InteractorFinder:
 
-    def __init__(self, name_list: str):
-        self.names = name_list
+    def __init__(self, symbol: str):
+        self.names = list({symbol, symbol.upper(), symbol.lower(), symbol.capitalize()})
         self.results = None
 
     def __len__(self):
@@ -29,18 +31,46 @@ class InteractorFinder:
         else:
             logger.warning("No results!")
 
+    def __check_db(self, node_type: str, edge_type: str, pmods: list, druggable: bool = False):
+        """Checks if query results are stored in cache."""
+        target = self.names[0].upper()  # Target symbol upper case for humans
+        if edge_type in EDGE_MAPPER:
+            rels = EDGE_MAPPER[edge_type]
+
+        else:
+            rels = [edge_type]
+
+        table = Druggable if druggable else General
+
+        query = session().query(table).filter_by(target_symbol=target, target_type=node_type).all()
+        results = pd.read_sql(query.statement, session().query.bind)
+
+        # Filter by edges and pmods
+        filtered_df = results[results['relation_type'].isin(rels)]
+        if pmods:
+            filtered_df = filtered_df[filtered_df['pmod_type'].isin(pmods)]
+
+        return filtered_df if not filtered_df.empty else None
+
+
     def find_interactors(self,
                          target_type: str = 'protein',
                          edge_class: str = 'E',
                          pmods: list = None,
                          print_sql: bool = False) -> pd.DataFrame:
-        """Returns causal interactors of the target
+        """Returns interactors of the target.
 
         Parameters
         ----------
+        target_type: str
+            Node type to query.
+        edge_class: str
+            Which edge type to restrict the search to.
         pmods : list
             A python list of target protein modifications for filtering results. Pmods must be defined using the
             e(BE:L) pmod labels.
+        print_sql: bool
+            If true, will print the query.
 
         Returns
         -------
@@ -83,13 +113,18 @@ class InteractorFinder:
                               target_type: str = 'protein',
                               pmods: list = None,
                               print_sql: bool = False) -> pd.DataFrame:
-        """Returns all interactors of the target
+        """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from
+        `find_interactors`.
 
         Parameters
         ----------
+        target_type: str
+            Node type to query.
         pmods : list
             A python list of target protein modifications for filtering results. Pmods must be defined using the
             e(BE:L) pmod labels.
+        print_sql: bool
+            If true, will print the query.
 
         Returns
         -------
@@ -98,9 +133,10 @@ class InteractorFinder:
         pure_query = PURE_DRUGGABLE_QUERY
         capsule_query = CAPSULE_DRUGGABLE_QUERY
 
-        cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel',
-                'interactor_type', 'interactor_name', 'relation_type', 'target_bel', 'pmid', 'pmc',
-                'rel_rid', 'drug_rel_rid']
+        cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
+                'interactor_name', 'relation_type', 'target_bel', 'pmid', 'pmc', 'rel_pub_year', 'rel_rid',
+                'drug_rel_actions', 'drug_rel_rid', 'evidence', 'drugbank_id', 'drug_patents', 'drug_products',
+                'chembl_id', 'pubchem_id']
 
         if target_type != 'protein':
             pure_query = pure_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
@@ -138,7 +174,7 @@ class InteractorFinder:
         return self.results
 
     def export(self, file_path: str):
-        """Exports results dataframe to path"""
+        """Exports results dataframe to path."""
 
         if self.results is None:
             logger.warning("No results found! Failed to export.")
@@ -148,12 +184,12 @@ class InteractorFinder:
             logger.info(f"Results written to {file_path}")
 
     def drug_and_interactors(self):
-        """Returns a list of interactors and the drugs that affect them"""
+        """Returns a list of interactors and the drugs that affect them."""
         if self.results is not None and 'drug' in self.results.columns:
             return self.results[['drug', 'interactor_name']]
 
     def unique_drugs(self):
-        """Returns a list of unique drugs found in the results dataframe"""
+        """Returns a list of unique drugs found in the results dataframe."""
         if self.results is not None:
             return pd.DataFrame(self.results['drug'].unique(), columns=['drug'])
 

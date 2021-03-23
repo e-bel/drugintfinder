@@ -1,3 +1,5 @@
+sqlalchemy
+sqlalchemy_utils
 click
 ebel-rest
 pandas

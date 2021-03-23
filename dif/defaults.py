@@ -5,10 +5,14 @@ import logging
 
 from pathlib import Path
 from ebel_rest import connect
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy_utils import create_database, database_exists
+
 
 logger = logging.getLogger(__name__)
 
-# Database credentials
+# Graphstore credentials
 db = 'pharmacome'
 db_user = 'mavo_user'
 db_password = 'mavo'
@@ -17,8 +21,8 @@ db_server = 'https://graphstore.scai.fraunhofer.de'
 connect(db_user, db_password, db_server, db, print_url=False)
 
 # Default Directory Paths
-home_dir = str(Path.home())
-PROJECT_DIR = os.path.join(home_dir, ".dif")
+HOME = str(Path.home())
+PROJECT_DIR = os.path.join(HOME, ".dif")
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 CACHE_DIR = os.path.join(PROJECT_DIR, "cache")
 
@@ -32,3 +36,12 @@ BIOASSAY_CACHE = os.path.join(CACHE_DIR, "bioassays.json")
 LOG_FILE_PATH = os.path.join(LOG_DIR, "dif.log")
 logging.basicConfig(filename=LOG_FILE_PATH,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# SQLite
+DB_PATH = os.path.join(PROJECT_DIR, f"dif.db")
+CONN = f"sqlite:///{DB_PATH}"
+if not database_exists(CONN):
+    create_database(CONN)
+
+engine = create_engine(CONN, convert_unicode=True)
+session = sessionmaker(bind=engine)

@@ -2,6 +2,30 @@
 
 PUBCHEM_BIOASSAY_API = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/assay/target/accession/{}/aids/TXT"
 
+###########
+# Mappers #
+###########
+
+# Edge types
+COMPILER = ['has_modification', 'has_product', 'reactant_in', 'acts_in', 'has_variant', 'translocates', 'includes']
+CAUSAL = ['increases', 'decreases', 'directly_increases', 'directly_decreases', 'causes_no_change',
+          'rate_limiting_step_of', 'regulates']
+CORRELATIVE = ['association', 'no_correlation', 'positive_correlation', 'negative_correlation']
+OTHER = ['has_member', 'has_members', 'has_component', 'has_components', 'equivalent_to', 'is_a', 'sub_process_of',
+         'analogous_to', 'biomarker_for', 'prognostic_biomarker_for']
+GENOMIC = ['transcribed_to', 'translated_to', 'orthologous']
+BEL_RELATION = CAUSAL + CORRELATIVE + OTHER + GENOMIC
+ALL = BEL_RELATION + COMPILER
+
+EDGE_MAPPER = {
+    'bel_relation': BEL_RELATION,
+    'causal': CAUSAL,
+    'correlative': CORRELATIVE,
+    'other': OTHER,
+    'genomic': GENOMIC,
+    'compiler': COMPILER,
+    'E': ALL
+}
 
 CT_MAPPER = {
     'ongoing': [
@@ -63,11 +87,10 @@ RETURN
 pmod.type as pmod_type,
 relation.@class as relation_type,
 target.bel as target_bel,
+target.@class as target_type,
 interactor.bel as interactor_bel,
 interactor.name as interactor_name,
 interactor.@class as interactor_type,
-interactor.involved_genes as interactor_involved_genes,
-interactor.involved_other as interactor_involved_other,
 relation.pmid as pmid,
 relation.pmc as pmc,
 target.species as target_species
@@ -80,16 +103,26 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         .inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}
         RETURN
+        pmod.type as pmod_type,
         relation.@class as relation_type,
+        relation.citation.pub_date.subString(0, 4) as rel_pub_year,
         target.bel as target_bel,
+        target.@class as target_type,
         interactor.bel as interactor_bel,
         interactor.name as interactor_name,
         interactor.@class as interactor_type,
         drug.label as drug,
+        drug.drugbank_id as drugbank_id,
+        drug.drugbank.chembl_id as chembl_id,
+        drug.drugbank.pubchem_cid as pubchem_id,
+        drug.drugbank.patents as drug_patents,
+        drug.drugbank.products.product as drug_products,
         relation.pmid as pmid,
         relation.pmc as pmc,
+        relation.evidence as evidence,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid
+        drug_rel.@rid.asString() as drug_rel_rid,
+        drug_rel.actions as drug_rel_actions
         """
 
 CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
@@ -101,16 +134,26 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         .inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}
         RETURN
+        pmod.type as pmod_type,
         drug.label as drug,
+        drug.drugbank_id as drugbank_id,
+        drug.drugbank.chembl_id as chembl_id,
+        drug.drugbank.pubchem_cid as pubchem_id,
+        drug.drugbank.patents as drug_patents,
+        drug.drugbank.products.product as drug_products,
         pure_interactor.@class as interactor_type,
         pure_interactor.bel as interactor_bel,
         pure_interactor.name as interactor_name,
         capsule_interactor.bel as capsule_interactor_bel,
         capsule_interactor.@class as capsule_interactor_type,
         relation.@class as relation_type,
+        relation.evidence as evidence,
+        relation.citation.pub_date.subString(0, 4) as rel_pub_year,
         target.bel as target_bel,
+        target.@class as target_type,
         relation.pmid as pmid,
         relation.pmc as pmc,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid
+        drug_rel.@rid.asString() as drug_rel_rid,
+        drug_rel.actions as drug_rel_actions
         """
