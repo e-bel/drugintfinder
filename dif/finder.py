@@ -77,6 +77,7 @@ class InteractorFinder:
         -------
         pd.DataFrame
         """
+        table = 'general'
         cached_results = self.__query_db(node_type=target_type, druggable=False)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
@@ -111,8 +112,8 @@ class InteractorFinder:
                 self.results.index += 1
                 self.results.index.rename('id', inplace=True)
 
-                logger.info(f"Importing results for {self.names[0].upper()} into SQLite DB")
-                self.results.to_sql('general', if_exists="replace", con=engine)
+                logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
+                self.results.to_sql(table, if_exists="replace", con=engine)
 
         return self.results
 
@@ -133,6 +134,7 @@ class InteractorFinder:
         -------
         pd.DataFrame
         """
+        table = 'druggable'
         cached_results = self.__query_db(node_type=target_type, druggable=True)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
@@ -179,8 +181,8 @@ class InteractorFinder:
                 self.results.index += 1
                 self.results.index.rename('id', inplace=True)
 
-                logger.info(f"Importing results for {self.names[0].upper()} into SQLite DB")
-                self.results.to_sql('druggable', if_exists="replace", con=engine)
+                logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
+                self.results.to_sql(table, if_exists="replace", con=engine)
 
         return self.results
 
