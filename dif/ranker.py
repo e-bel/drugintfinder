@@ -6,15 +6,17 @@ import requests
 import logging
 import pandas as pd
 
-from datetime import datetime
 from tqdm import tqdm
+from typing import Optional
+from datetime import datetime
 from json.decoder import JSONDecodeError
 from ebel_rest import query as rest_query
 
-from dif.constants import PUBCHEM_BIOASSAY_API, UNIPROT_ID, CT_MAPPER, ACTION_MAPPER, CLINICAL_TRIAL_FROM_DRUG, \
-    ASSOCIATED_PATHWAYS
-from dif.defaults import BIOASSAY_CACHE
+from dif.utils import chunks
 from dif.finder import InteractorFinder
+from dif.defaults import BIOASSAY_CACHE
+from dif.constants import PUBCHEM_BIOASSAY_API, UNIPROT_ID, CT_MAPPER, ACTION_MAPPER, CLINICAL_TRIAL_FROM_DRUG, \
+    ASSOCIATED_PATHWAYS, PATENTS_PRODUCTS
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -37,6 +39,48 @@ class Ranker:
         self.results = finder.results
         self.interactors = finder.unique_interactors()
         self.drugs = finder.unique_drugs()
+        self.drug_metadata = self.__compile_drug_metadata()
+
+    def __compile_drug_metadata(self) -> dict:
+        metadata = {drug_name: {'patents': dict(),
+                                'products': dict(),
+                                'identifiers': dict(),
+                                'interactors': dict(),
+                                }
+                    for drug_name in self.drugs}
+        for _, r in self.results.iterrows():
+            drug_name = r['drug']
+            db_id = r['drugbank_id']
+            interactor_name = r['interactor_name']
+            metadata[drug_name]['identifiers'] = {'drugbank_id': db_id,
+                                                  'chembl_id': r['chembl_id'],
+                                                  'pubchem_id': r['pubchem_id']}
+
+            if r['relation_type'] == 'regulates':
+                continue
+            elif interactor_name in metadata[drug_name]['interactors']:
+                metadata[drug_name]['interactors']['relation_type'].add(r['relation_type'])
+            else:
+                rel_data = {'relation_type': {r['relation_type']},  # Collect relation types in set for later comparison
+                            'actions': r['drug_rel_actions'].split("|")}
+                metadata[drug_name]['interactors'] = rel_data
+
+        # TODO add patent/products
+        return metadata
+
+    @staticmethod
+    def __query_db_patents_products(db_ids: list) -> dict:
+        pp_df = pd.DataFrame(columns=['id', 'drug_patents', 'drug_products'])
+        for id_list_chunk in chunks(db_ids):
+            results = rest_query.sql(PATENTS_PRODUCTS.format(id_list_chunk)).table
+            pp_df = pd.concat([results, pp_df], axis=0)
+
+        if pp_df.empty:
+            return None
+
+        else:
+            return pp_df
+
 
     @staticmethod
     def __check_bioassay_cache() -> dict:

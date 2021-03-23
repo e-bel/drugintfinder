@@ -35,6 +35,7 @@ class Druggable(MetaClass, Base):
     pmc = Column(VARCHAR(255))
     rel_rid = Column(VARCHAR(255))
     drug_rel_rid = Column(VARCHAR(255))
+    drug_rel_actions = Column(VARCHAR(255))
 
 
 class General(MetaClass, Base):

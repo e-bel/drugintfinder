@@ -141,7 +141,7 @@ class InteractorFinder:
 
             cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
                     'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
-                    'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid',
+                    'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
                     'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
 
             if target_type != 'protein' or not self.pmods:
@@ -176,6 +176,7 @@ class InteractorFinder:
                 self.results = df_concat[cols]
                 self.results.index += 1
                 self.results.index.rename('id', inplace=True)
+                self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="replace", con=engine)

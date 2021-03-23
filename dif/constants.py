@@ -78,6 +78,7 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
 UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
 CLINICAL_TRIAL_FROM_DRUG = """SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}'"""
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
+PATENTS_PRODUCTS = "SELECT id, patents as drug_patents, products.product as drug_products FROM drugbank WHERE id in {}"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}
@@ -120,7 +121,8 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         relation.pmid as pmid,
         relation.pmc as pmc,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid
+        drug_rel.@rid.asString() as drug_rel_rid,
+        drug_rel.actions as drug_rel_actions
         """
 
 CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
@@ -150,5 +152,6 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         relation.pmid as pmid,
         relation.pmc as pmc,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid
+        drug_rel.@rid.asString() as drug_rel_rid,
+        drug_rel.actions as drug_rel_actions
         """
