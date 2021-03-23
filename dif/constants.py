@@ -117,14 +117,10 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         drug.drugbank_id as drugbank_id,
         drug.drugbank.chembl_id as chembl_id,
         drug.drugbank.pubchem_cid as pubchem_id,
-        drug.drugbank.patents as drug_patents,
-        drug.drugbank.products.product as drug_products,
         relation.pmid as pmid,
         relation.pmc as pmc,
-        relation.evidence as evidence,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid,
-        drug_rel.actions as drug_rel_actions
+        drug_rel.@rid.asString() as drug_rel_rid
         """
 
 CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
@@ -141,15 +137,12 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         drug.drugbank_id as drugbank_id,
         drug.drugbank.chembl_id as chembl_id,
         drug.drugbank.pubchem_cid as pubchem_id,
-        drug.drugbank.patents as drug_patents,
-        drug.drugbank.products.product as drug_products,
         pure_interactor.@class as interactor_type,
         pure_interactor.bel as interactor_bel,
         pure_interactor.name as interactor_name,
         capsule_interactor.bel as capsule_interactor_bel,
         capsule_interactor.@class as capsule_interactor_type,
         relation.@class as relation_type,
-        relation.evidence as evidence,
         relation.citation.pub_date.subString(0, 4) as rel_pub_year,
         target.name as target_symbol,
         target.bel as target_bel,
@@ -157,6 +150,5 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         relation.pmid as pmid,
         relation.pmc as pmc,
         relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid,
-        drug_rel.actions as drug_rel_actions
+        drug_rel.@rid.asString() as drug_rel_rid
         """

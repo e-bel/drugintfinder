@@ -20,14 +20,11 @@ class Druggable(MetaClass, Base):
     drugbank_id = Column(VARCHAR(255))
     chembl_id = Column(VARCHAR(255))
     pubchem_id = Column(VARCHAR(255))
-    drug_patents = Column(VARCHAR(1000))
-    drug_products = Column(VARCHAR(1000))
     interactor_type = Column(VARCHAR(100))
     interactor_bel = Column(VARCHAR(1000))
     interactor_name = Column(VARCHAR(255))
     capsule_interactor_bel = Column(VARCHAR(1000))
     capsule_interactor_type = Column(VARCHAR(255))
-    evidence = Column(VARCHAR(1000))
     rel_pub_year = Column(INTEGER)
     target_bel = Column(VARCHAR(1000))
     target_symbol = Column(VARCHAR(255), index=True)
@@ -38,7 +35,6 @@ class Druggable(MetaClass, Base):
     pmc = Column(VARCHAR(255))
     rel_rid = Column(VARCHAR(255))
     drug_rel_rid = Column(VARCHAR(255))
-    drug_rel_actions = Column(VARCHAR(1000))
 
 
 class General(MetaClass, Base):

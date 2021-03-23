@@ -134,7 +134,7 @@ class InteractorFinder:
         pd.DataFrame
         """
         cached_results = self.__query_db(node_type=target_type, druggable=True)
-        if cached_results:
+        if cached_results is not None and not cached_results.empty:
             self.results = cached_results
 
         else:
@@ -143,8 +143,8 @@ class InteractorFinder:
 
             cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
                     'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
-                    'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_actions', 'drug_rel_rid', 'evidence',
-                    'drugbank_id', 'drug_patents', 'drug_products', 'chembl_id', 'pubchem_id', 'pmod_type']
+                    'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid',
+                    'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
 
             if target_type != 'protein' or not self.pmods:
                 pure_query = pure_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
