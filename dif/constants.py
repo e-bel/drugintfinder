@@ -75,7 +75,7 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
 # Queries #
 ###########
 
-UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}'"
+UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
 CLINICAL_TRIAL_FROM_DRUG = """SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}'"""
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
 

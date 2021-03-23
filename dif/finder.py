@@ -63,7 +63,7 @@ class InteractorFinder:
 
     def find_interactors(self,
                          target_type: str = 'protein',
-                         print_sql: bool = False) -> pd.DataFrame:
+                         print_sql: bool = False):
         """Returns interactors of the target.
 
         Parameters
@@ -115,18 +115,12 @@ class InteractorFinder:
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="replace", con=engine)
 
-        return self.results
-
-    def druggable_interactors(self,
-                              target_type: str = 'protein',
-                              print_sql: bool = False) -> pd.DataFrame:
+    def druggable_interactors(self, print_sql: bool = False):
         """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from
         `find_interactors`.
 
         Parameters
         ----------
-        target_type: str
-            Node type to query.
         print_sql: bool
             If true, will print the query.
 
@@ -135,6 +129,8 @@ class InteractorFinder:
         pd.DataFrame
         """
         table = 'druggable'
+        target_type = 'protein'  # Druggable means protein target
+
         cached_results = self.__query_db(node_type=target_type, druggable=True)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
@@ -184,8 +180,6 @@ class InteractorFinder:
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="replace", con=engine)
 
-        return self.results
-
     def export(self, file_path: str):
         """Exports results dataframe to path."""
 
@@ -201,10 +195,15 @@ class InteractorFinder:
         if self.results is not None and 'drug' in self.results.columns:
             return self.results[['drug', 'interactor_name']]
 
+    def unique_interactors(self):
+        """Returns a list of unique interactors found in the results dataframe."""
+        if self.results is not None:
+            return tuple(self.results['interactor_name'].unique())
+
     def unique_drugs(self):
         """Returns a list of unique drugs found in the results dataframe."""
         if self.results is not None:
-            return pd.DataFrame(self.results['drug'].unique(), columns=['drug'])
+            return tuple(self.results['drug'].unique())
 
 
 def get_interactor_list(results_df: pd.DataFrame):
