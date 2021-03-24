@@ -1,5 +1,16 @@
 """Defined string constants."""
 
+# Strings
+POINTS = 'points'
+PATENTS = 'patents'
+IDENTIFIERS = 'identifiers'
+PRODUCTS = 'products'
+INTERACTORS = 'interactors'
+CLINICAL_TRIALS = 'clinical_trials'
+TIC = 'target_interactor_contradiction'
+DAC = 'drug_action_contradiction'
+
+# API
 PUBCHEM_BIOASSAY_API = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/assay/target/accession/{}/aids/TXT"
 
 ###########
@@ -64,8 +75,7 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
                  'neutralizer': 'negative_regulator',
                  'other/unknown': 'neutral',
                  'partial agonist': 'positive_regulator',
-                 'potentiator': 'negative_regulator',
-                 # 'potentiator' only used for Pimecrolimus which is an inhibitor
+                 'potentiator': 'negative_regulator',  # 'potentiator' only used for Pimecrolimus which is an inhibitor
                  'stabilization': 'positive_regulator',
                  'substrate': 'neutral',  # Can't tell if it's pos or neg
                  'weak inhibitor': 'negative_regulator',
@@ -75,10 +85,14 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
 # Queries #
 ###########
 
+IN_COUNT = "SELECT count(*) as number FROM causal WHERE in.name = '{}' AND in.pure = true AND in.@class = 'protein'"
+OUT_COUNT = "SELECT count(*) as number FROM causal WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"
+
 UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
 CLINICAL_TRIAL_FROM_DRUG = """SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}'"""
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
-PATENTS_PRODUCTS = "SELECT id, patents as drug_patents, products.product as drug_products FROM drugbank WHERE id in {}"
+PATENTS_PRODUCTS = "SELECT name, patents as drug_patents, products.product as drug_products FROM drugbank " \
+                   "WHERE id in {}"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}

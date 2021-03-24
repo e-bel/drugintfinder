@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, VARCHAR, INTEGER
+from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN
 from sqlalchemy.ext.declarative import declarative_base
 
 from dif.defaults import engine
@@ -53,6 +53,48 @@ class General(MetaClass, Base):
     pmid = Column(INTEGER)
     pmc = Column(VARCHAR(255))
     target_species = Column(INTEGER)
+
+
+class Patents(MetaClass, Base):
+    __tablename__ = 'patents'
+    id = Column(Integer, primary_key=True)
+
+    drug_name = Column(VARCHAR(255))
+    has_patent = Column(BOOLEAN)
+    expired = Column(BOOLEAN)
+    patent_numbers = Column(VARCHAR(255))
+
+
+class Products(MetaClass, Base):
+    __tablename__ = 'products'
+    id = Column(Integer, primary_key=True)
+
+    drug_name = Column(VARCHAR(255))
+    has_generic = Column(BOOLEAN)
+    has_approved_generic = Column(BOOLEAN)
+    generic_products = Column(VARCHAR(255))
+
+
+class Trials(MetaClass, Base):
+    __tablename__ = 'trials'
+    id = Column(Integer, primary_key=True)
+
+    drug_name = Column(VARCHAR(255))
+    drugbank_id = Column(VARCHAR(255), index=True)
+    trial_id = Column(VARCHAR(255), index=True)
+    trial_status = Column(VARCHAR(255))
+    conditions = Column(VARCHAR(255))
+    drugs_in_trial = Column(VARCHAR(255))
+
+
+class Edges(MetaClass, Base):
+    __tablename__ = 'edges'
+    id = Column(Integer, primary_key=True)
+
+    symbol = Column(VARCHAR(255), index=True)
+    out_count = Column(INTEGER)
+    in_count = Column(INTEGER)
+    both_count = Column(INTEGER)
 
 
 Base.metadata.create_all(bind=engine)

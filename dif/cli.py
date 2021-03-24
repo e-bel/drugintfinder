@@ -68,7 +68,7 @@ def rank(symbol: str, pmods: str, reward: int, penalty: int):
     finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
     finder.druggable_interactors()
     ranker = Ranker(finder, reward=reward, penalty=penalty)
-    ranker.get_bioassay_counts()
+    ranker.count_bioassays()
 
 
 if __name__ == "__main__":
