@@ -81,7 +81,7 @@ class Trials(MetaClass, Base):
     __tablename__ = 'trials'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255))
+    drug_name = Column(VARCHAR(255), index=True)
     drugbank_id = Column(VARCHAR(255), index=True)
     trial_id = Column(VARCHAR(255), index=True)
     trial_status = Column(VARCHAR(255))

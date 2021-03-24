@@ -241,9 +241,8 @@ class Ranker:
         elif pos_drug in drug_actions and any(rel in int_rel for rel in neg_int_rel):
             return True
 
-        else:
-            print(f"Unrecognized drug actions: {drug_actions}")
-            print(f"Unrecognized interaction relation: {int_rel}")
+        else:  # drug_actions = 'neutral'
+            return False
 
     def score_drug_relationships(self):
         """Adds the score to the drug/target pair based on whether it has information on the action
@@ -304,17 +303,16 @@ class Ranker:
         """Checks if query results are stored in cache."""
         logger.info("Querying SQLite DB for Clinical Trial data")
 
-        raw = session().query(Trials).filter_by(drugbank_id=db_id).all()
-        if raw:
-            results = [dict(r) for r in raw]
-            compiled = {r['trial_id']: {r['trial_status'],
-                                        r['conditions'].split(";"),
-                                        r['drugs_in_trial'].split("|")}
-                        for r in results}
+        results = session().query(Trials).filter_by(drugbank_id=db_id).all()
+        compiled = dict()
+        if results:
+            for r in results:
+                if r.trial_id is not None:  # No 'trial_id' indicates no associated trials and was previously checked
+                    compiled[r.trial_id] = {'trial_status': r.trial_status,
+                                            'conditions': r.conditions.split(";"),
+                                            'drugs_in_trial': r.drugs_in_trial.split("|")}
 
             return compiled
-
-        return None
 
     @staticmethod
     def __import_ct_data(ct_data: list):
@@ -338,7 +336,7 @@ class Ranker:
         db_ids = {data[IDENTIFIERS]['drugbank_id']: drug_name for drug_name, data in self.drug_metadata.items()}
         for db_id, drug_name in tqdm(db_ids.items(), total=len(db_ids), desc="Gathering clinical trial info"):
             cached_data = self.__query_db_ct_data(db_id)
-            if cached_data:
+            if cached_data is not None:
                 self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
                     {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **cached_data}
 
@@ -365,6 +363,9 @@ class Ranker:
                     self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
                         {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **ct_data}
 
+                else:  # Enter empty row for drug to indicate no clinical trials associated
+                    to_import.append({'drug_name': drug_name, 'drugbank_id': db_id})
+
         if to_import:
             self.__import_ct_data(to_import)
 
@@ -374,8 +375,7 @@ class Ranker:
 
         self.__collect_ct_info()
         logger.info("Scoring Clinical Trial data")
-        for drug_name, metadata in tqdm(self.drug_metadata.items(), total=len(self.drug_metadata),
-                                        desc="Scoring CT data"):
+        for drug_name, metadata in self.drug_metadata.items():
             pts = self.__reward  # Default to reward unless changed
 
             if metadata[CLINICAL_TRIALS]:  # There is clinical trial data
@@ -416,10 +416,13 @@ class Ranker:
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
         """Obtains counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
-        raw = session().query(Edges).filter_by(symbol=symbol).all()
-        results = [dict(r) for r in raw]
-        assert len(raw) < 2
-        return results[0] if results else None
+        results = session().query(Edges).filter_by(symbol=symbol).all()
+        assert len(results) < 2
+        if results:
+            hit = results[0]
+            data = {'symbol': hit.symbol, 'out_count': hit.out_count,
+                    'in_count': hit.in_count, 'both_count': hit.both_count}
+            return data
 
     @staticmethod
     def __query_graphstore_edge_counts(symbol: str) -> dict:
@@ -441,7 +444,7 @@ class Ranker:
     def count_edges(self) -> dict:
         """Counts the number of incoming, outgoing, and total edges for each interactor."""
         edge_counts = dict()
-        for symbol in tqdm(self.interactor_metadata.keys(), total=self.interactor_metadata.keys(),
+        for symbol in tqdm(self.interactor_metadata.keys(), total=len(self.interactor_metadata.keys()),
                            desc="Counting edges"):
             counts = self.__query_db_edge_counts(symbol)
             if not counts:
