@@ -89,7 +89,8 @@ IN_COUNT = "SELECT count(*) as number FROM causal WHERE in.name = '{}' AND in.pu
 OUT_COUNT = "SELECT count(*) as number FROM causal WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"
 
 UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
-CLINICAL_TRIAL_FROM_DRUG = """SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}'"""
+CLINICAL_TRIAL_FROM_DRUG = """SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM (
+SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}')"""
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
 PATENTS_PRODUCTS = "SELECT name, patents as drug_patents, products.product as drug_products FROM drugbank " \
                    "WHERE id in {}"

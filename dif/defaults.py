@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from ebel_rest import connect
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy_utils import create_database, database_exists
 
 

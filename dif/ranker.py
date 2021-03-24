@@ -49,7 +49,7 @@ class Ranker:
         self.score_interactors()
 
     def score_drugs(self):
-        """Wrapper method to parse raw metadata and calculate points for each ranking criteria."""
+        """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
         self.score_drug_relationships()
         self.score_patents()
         self.score_generics()
@@ -57,6 +57,7 @@ class Ranker:
         # self.score_homologs()
 
     def score_interactors(self):
+        """Wrapper method to parse raw interactor metadata and calculate points for each ranking criteria."""
         self.count_bioassays()
         self.count_edges()
 
@@ -76,10 +77,10 @@ class Ranker:
                 metadata[drug_name][INTERACTORS][interactor_name]['relation_type'].add(r['relation_type'])
             else:
                 rel_data = {'relation_type': {r['relation_type']},  # Collect relation types in set for later comparison
-                            'actions': r['drug_rel_actions'].split("|")}
+                            'actions': r['drug_rel_actions'].split("|") if r['drug_rel_actions'] else None}
                 metadata[drug_name][INTERACTORS][interactor_name] = rel_data
 
-        db_ids = [entry[IDENTIFIERS]['drugbank_id'] for entry in metadata]
+        db_ids = [entry[IDENTIFIERS]['drugbank_id'] for entry in metadata.values()]
         pp_data = self.__query_graphstore_patents_products(db_ids)
         for drug_name, pp_metadata in pp_data.items():
             metadata[drug_name][PATENTS] = pp_metadata['drug_patents']
@@ -102,7 +103,7 @@ class Ranker:
     def __query_graphstore_patents_products(db_ids: list) -> Optional[dict]:
         # TODO: Add data to SQLite DB
         patent_data = dict()
-        for id_list_chunk in chunks(db_ids):
+        for id_list_chunk in chunks(db_ids, n=400):
             results = rest_query.sql(PATENTS_PRODUCTS.format(id_list_chunk)).data
             for hit in results:
                 patent_data[hit.pop('name')] = hit  # Remaining keys are drug_patents + drug_products
@@ -117,16 +118,24 @@ class Ranker:
         for drug_name, patent_info in drugs_and_patents_raw.items():
             patent_numbers = []
             expired_list = []
-            patent_list = patent_info['patent'] if isinstance(patent_info['patent'], list) else [patent_info['patent']]
-            for patent in patent_list:
-                patent_numbers.append(patent['number'])
-                expired_list.append(datetime.today() > datetime.strptime(patent['expires'], "%Y-%m-%d"))
+            if patent_info:
+                patent_list = patent_info['patent']
 
-            all_expired = all(expired_list)
-            self.drug_scores[drug_name][PATENTS] = {'has_patent': bool(patent_numbers),
-                                                    'expired': all_expired,
-                                                    'patent_numbers': "|".join(patent_numbers),
-                                                    POINTS: self.__reward if all_expired else self.__penalty}
+                if not isinstance(patent_info['patent'], list):
+                    patent_list = [patent_info['patent']]
+
+                for patent in patent_list:
+                    patent_numbers.append(patent['number'])
+                    expired_list.append(datetime.today() > datetime.strptime(patent['expires'], "%Y-%m-%d"))
+
+                all_expired = all(expired_list)
+                self.drug_scores[drug_name][PATENTS] = {'has_patent': bool(patent_numbers),
+                                                        'expired': all_expired,
+                                                        'patent_numbers': "|".join(patent_numbers),
+                                                        POINTS: self.__reward if all_expired else self.__penalty}
+
+            else:
+                self.drug_scores[drug_name][PATENTS] = None
 
     def score_generics(self):
         """Gives scores to drugs in the hit list based on whether they have an approved generic version.
@@ -233,8 +242,8 @@ class Ranker:
             return True
 
         else:
-            print(drug_actions)
-            print(int_rel)
+            print(f"Unrecognized drug actions: {drug_actions}")
+            print(f"Unrecognized interaction relation: {int_rel}")
 
     def score_drug_relationships(self):
         """Adds the score to the drug/target pair based on whether it has information on the action
@@ -250,8 +259,7 @@ class Ranker:
             Keys are drug names, values are point values.
         """
         for drug_name, metadata in self.drug_metadata.items():
-            interactor_metadata = metadata[INTERACTORS]
-            for target_name, ti_metadata in interactor_metadata.items():
+            for target_name, ti_metadata in metadata[INTERACTORS].items():
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
                     DAC: False,
@@ -292,18 +300,21 @@ class Ranker:
                 self.drug_scores[drug_name][INTERACTORS][target_name][POINTS] = pts
 
     @staticmethod
-    def __query_db_ct_data(db_id: str) -> dict:
+    def __query_db_ct_data(db_id: str) -> Optional[dict]:
         """Checks if query results are stored in cache."""
         logger.info("Querying SQLite DB for Clinical Trial data")
-        raw = session().query('trials').values('trial_id', 'trial_status', 'conditions', 'drugs_in_trial')\
-            .filter_by(drugbank_id=db_id).all()
-        results = [dict(r) for r in raw]
-        compiled = {r['trial_id']: {r['trial_status'],
-                                    r['conditions'].split("|"),
-                                    r['drugs_in_trial'].split("|")}
-                    for r in results}
 
-        return compiled
+        raw = session().query(Trials).filter_by(drugbank_id=db_id).all()
+        if raw:
+            results = [dict(r) for r in raw]
+            compiled = {r['trial_id']: {r['trial_status'],
+                                        r['conditions'].split(";"),
+                                        r['drugs_in_trial'].split("|")}
+                        for r in results}
+
+            return compiled
+
+        return None
 
     @staticmethod
     def __import_ct_data(ct_data: list):
@@ -328,7 +339,8 @@ class Ranker:
         for db_id, drug_name in tqdm(db_ids.items(), total=len(db_ids), desc="Gathering clinical trial info"):
             cached_data = self.__query_db_ct_data(db_id)
             if cached_data:
-                self.drug_metadata[CLINICAL_TRIALS] = {**self.drug_metadata[CLINICAL_TRIALS], **cached_data}
+                self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
+                    {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **cached_data}
 
             else:  # Have to query graphstore
                 results = rest_query.sql(CLINICAL_TRIAL_FROM_DRUG.format(db_id)).data
@@ -338,9 +350,9 @@ class Ranker:
                         # Parse graphstore data
                         status = r['overall_status']
                         trial_id = r['trial_id']
-                        primary_condition = r['condition']  # List
-                        mesh = r['mesh_conditions'] if 'mesh_conditions' in r else None  # List or None
-                        conditions = set(primary_condition + mesh) if mesh is not None else set(primary_condition)
+                        primary_condition = r['condition'] if r['condition'] is not None else []
+                        mesh = r['mesh_conditions'] if r['mesh_conditions'] is not None else []
+                        conditions = ";".join(set(primary_condition + mesh))
                         trial_drugs = r['drugs_in_trial'] if 'drugs_in_trial' in r else None
 
                         # Structure data
@@ -350,7 +362,8 @@ class Ranker:
 
                         ct_data[trial_id] = metadata
 
-                    self.drug_metadata[CLINICAL_TRIALS] = {**self.drug_metadata[CLINICAL_TRIALS], **ct_data}
+                    self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
+                        {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **ct_data}
 
         if to_import:
             self.__import_ct_data(to_import)
@@ -403,7 +416,7 @@ class Ranker:
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
         """Obtains counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
-        raw = session().query('edges').filter_by(symbol=symbol).all()
+        raw = session().query(Edges).filter_by(symbol=symbol).all()
         results = [dict(r) for r in raw]
         assert len(raw) < 2
         return results[0] if results else None
@@ -428,7 +441,8 @@ class Ranker:
     def count_edges(self) -> dict:
         """Counts the number of incoming, outgoing, and total edges for each interactor."""
         edge_counts = dict()
-        for symbol in self.interactor_metadata.keys():
+        for symbol in tqdm(self.interactor_metadata.keys(), total=self.interactor_metadata.keys(),
+                           desc="Counting edges"):
             counts = self.__query_db_edge_counts(symbol)
             if not counts:
                 counts = self.__query_graphstore_edge_counts(symbol)

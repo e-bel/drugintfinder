@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN
+"""Table definitions for SQLite DB."""
+
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN
 
 from dif.defaults import engine
 
@@ -97,4 +99,4 @@ class Edges(MetaClass, Base):
     both_count = Column(INTEGER)
 
 
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(engine)
