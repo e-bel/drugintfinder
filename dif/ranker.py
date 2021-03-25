@@ -87,7 +87,7 @@ class Ranker:
     def __compile_drug_metadata(self) -> dict:
         metadata = self.__generate_ranking_dict()
 
-        for r in tqdm(self.table.to_dict('records'), total=len(self.table), desc="Compiling metadata"):
+        for r in self.table.to_dict('records'):
             drug_name = r['drug']
             db_id = r['drugbank_id']
             interactor_name = r['interactor_name']
@@ -163,8 +163,8 @@ class Ranker:
         """Parses patent information from graphstore and generates a score. Imports into SQLite DB at the end."""
         sess = session()
         drugs_and_patents_raw = {drug_name: dd[PATENTS] for drug_name, dd in self.drug_metadata.items()}
-        for drug_name, patent_info in tqdm(drugs_and_patents_raw.items(), total=len(drugs_and_patents_raw),
-                                           desc="Scoring patents"):
+        logger.info("Scoring patent information")
+        for drug_name, patent_info in drugs_and_patents_raw.items():
             patent_numbers = []
             expired_list = []
             if patent_info:
@@ -197,8 +197,8 @@ class Ranker:
         """Gives scores to drugs in the hit list based on whether they have an approved generic version."""
         sess = session()
         drugs_and_product_info = {drug_name: dd[PRODUCTS] for drug_name, dd in self.drug_metadata.items()}
-        for drug_name, product_info in tqdm(drugs_and_product_info.items(), total=len(drugs_and_product_info),
-                                            desc="Scoring generics"):
+        logger.info("Scoring product information")
+        for drug_name, product_info in drugs_and_product_info.items():
             has_generic = False
             has_approved_generic = False
             generic_info = dict()
@@ -322,8 +322,8 @@ class Ranker:
         checked_drug_rels: dict
             Keys are drug names, values are point values.
         """
-        for drug_name, metadata in tqdm(self.drug_metadata.items(), total=len(self.drug_metadata),
-                                        desc="Scoring drug relationships"):
+        logger.info("Scoring drug relationships")
+        for drug_name, metadata in self.drug_metadata.items():
             for target_name, ti_metadata in metadata[INTERACTORS].items():
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
@@ -510,7 +510,8 @@ class Ranker:
     def count_edges(self) -> dict:
         """Counts the number of incoming, outgoing, and total edges for each interactor."""
         edge_counts = dict()
-        for symbol in tqdm(self.interactor_metadata.keys(), total=len(self.interactor_metadata.keys()),
+        logger.info("Gathering edge counts")
+        for symbol in tqdm(self.interactor_metadata.keys(), total=len(self.interactor_metadata),
                            desc="Counting edges"):
             counts = self.__query_db_edge_counts(symbol)
             if not counts:
@@ -573,3 +574,8 @@ class Ranker:
             self.interactor_metadata[symbol]['bioassays'] = bioassay_count
 
         return counts
+
+    def count_number_off_targets(self):
+        """Calculates the number of "off targets" per compound i.e. how many compounds it targets."""
+        # TODO
+        pass
