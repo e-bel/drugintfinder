@@ -4,6 +4,7 @@ import os
 import json
 import requests
 import logging
+import pandas as pd
 
 from tqdm import tqdm
 from typing import Optional
@@ -43,6 +44,10 @@ class Ranker:
         self.drugs = finder.unique_drugs()
         self.drug_metadata = self.__compile_drug_metadata()
         self.drug_scores = self.__generate_ranking_dict()
+
+    @property
+    def unique_drug_target_combos(self) -> list:
+        return self.finder.drug_and_interactors().to_dict('records')
 
     @property
     def dbid_drugname_mapper(self):
@@ -328,7 +333,7 @@ class Ranker:
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
                     DAC: False,
-                    'synergy': False,
+                    SYNERGY: False,
                     POINTS: 0
                 }
                 tic = self.__check_target_interactor_contradictions(ti_metadata)  # Target/interactor
@@ -356,7 +361,7 @@ class Ranker:
                     else:  # Compare synergy of drug actions with interactor/pTAU relations
                         synergy = self.__check_rel_synergy(mapped_actions, rels)
                         if synergy is True:  # Good comparison
-                            self.drug_scores[drug_name][INTERACTORS][target_name]['synergy'] = synergy
+                            self.drug_scores[drug_name][INTERACTORS][target_name][SYNERGY] = synergy
                             pts += self.__reward
 
                         else:
@@ -574,6 +579,31 @@ class Ranker:
             self.interactor_metadata[symbol]['bioassays'] = bioassay_count
 
         return counts
+
+    def generate_ranking_result_table(self) -> pd.DataFrame:
+        rows = []
+        for combo in self.unique_drug_target_combos:
+            drug_name, symbol = combo['drug'], combo['interactor_name']
+
+            synergizes = "Yes" if self.drug_scores[drug_name][INTERACTORS][symbol][SYNERGY] else "No"
+
+            # Interactor metadata
+            num_bioassays = self.interactor_metadata[symbol]['bioassays']
+            num_total_edges = self.interactor_metadata[symbol]['edges']
+
+            # Drug metadata
+            ongoing_patent = "Yes" if self.drug_scores[drug_name][PATENTS]['expired'] else "No"
+            has_approved_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_approved_generic'] else "No"
+            row = {'Drug': drug_name,
+                   'Target': symbol,
+                   'Synergizes': synergizes,
+                   'Number of BioAssays for Target': num_bioassays,
+                   'Number of Causal Edges for Target': num_total_edges,
+                   'Drug Patent Ongoing': ongoing_patent,
+                   'Generic Version of Drug Available': has_approved_generic}
+            rows.append(row)
+
+        return pd.DataFrame(rows)
 
     def count_number_off_targets(self):
         """Calculates the number of "off targets" per compound i.e. how many compounds it targets."""
