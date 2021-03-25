@@ -20,6 +20,10 @@ db_server = 'https://graphstore.scai.fraunhofer.de'
 
 connect(db_user, db_password, db_server, db, print_url=False)
 
+# Similar diseases to Alzheimer's
+SIMILAR_DISEASES = ["Parkinson Disease", "Amyotrophic Lateral Sclerosis", "Neurodegenerative Diseases",
+                    "Huntington Disease"]
+
 # Default Directory Paths
 HOME = str(Path.home())
 PROJECT_DIR = os.path.join(HOME, ".dif")

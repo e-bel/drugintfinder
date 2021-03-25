@@ -14,8 +14,8 @@ from ebel_rest import query as rest_query
 from dif.constants import *
 from dif.utils import chunks
 from dif.finder import InteractorFinder
-from dif.defaults import BIOASSAY_CACHE, session
 from dif.models import Trials, Edges, Patents, Products
+from dif.defaults import BIOASSAY_CACHE, session, SIMILAR_DISEASES
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -435,7 +435,7 @@ class Ranker:
         if to_import:
             self.__import_ct_data(to_import)
 
-    def score_cts(self, disease_keyword: str = "Alzheimer Disease", similar_diseases: list = []):
+    def score_cts(self, disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
         """Scores drugs based on involvement in a clinical trial. Returned dictionary contains
         points and relevant AD-associated CT information."""
 
