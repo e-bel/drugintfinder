@@ -11,11 +11,11 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 from ebel_rest import query as rest_query
 
+from dif.constants import *
 from dif.utils import chunks
-from dif.models import Trials, Edges
 from dif.finder import InteractorFinder
 from dif.defaults import BIOASSAY_CACHE, session
-from dif.constants import *
+from dif.models import Trials, Edges, Patents, Products
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -63,7 +63,9 @@ class Ranker:
 
     def __compile_drug_metadata(self) -> dict:
         metadata = self.__generate_ranking_dict()
-        for _, r in self.table.iterrows():
+
+        missing_pp_db_ids = set()
+        for _, r in tqdm(self.table.iterrows(), total=len(self.table)):
             drug_name = r['drug']
             db_id = r['drugbank_id']
             interactor_name = r['interactor_name']
@@ -80,9 +82,20 @@ class Ranker:
                             'actions': r['drug_rel_actions'].split("|") if r['drug_rel_actions'] else None}
                 metadata[drug_name][INTERACTORS][interactor_name] = rel_data
 
-        db_ids = [entry[IDENTIFIERS]['drugbank_id'] for entry in metadata.values()]
-        pp_data = self.__query_graphstore_patents_products(db_ids)
-        for drug_name, pp_metadata in pp_data.items():
+            patent_data = self.__query_db_patents(drug_name)
+            product_data = self.__query_db_products(drug_name)
+
+            if patent_data is None or product_data is None:
+                missing_pp_db_ids.add(db_id)
+
+            if patent_data is not None:
+                metadata[drug_name][PATENTS] = patent_data
+
+            if product_data is not None:
+                metadata[drug_name][PRODUCTS] = product_data
+
+        pp_data = self.__query_graphstore_patents_products(list(missing_pp_db_ids))
+        for drug_name, pp_metadata in tqdm(pp_data.items()):
             metadata[drug_name][PATENTS] = pp_metadata['drug_patents']
             metadata[drug_name][PRODUCTS] = pp_metadata['drug_products']
 
@@ -100,18 +113,51 @@ class Ranker:
         return empty_dict
 
     @staticmethod
+    def __query_db_patents(drug_name: str) -> Optional[dict]:
+        """Obtains patent information from SQLite DB for given gene drug name."""
+        results = session().query(Patents).filter_by(drug_name=drug_name).all()
+        assert len(results) < 2
+        if results:
+            hit = results[0]
+            data = {'drug_name': hit.drug_name, 'has_patent': hit.has_patent,
+                    'expired': hit.expired, 'patent_numbers': hit.patent_numbers.split("|")}
+            return data
+
+    @staticmethod
+    def __query_db_products(drug_name: str) -> Optional[dict]:
+        """Obtains product information from SQLite DB for given gene drug name."""
+        results = session().query(Products).filter_by(drug_name=drug_name).all()
+        assert len(results) < 2
+        if results:
+            hit = results[0]
+            data = {'drug_name': hit.drug_name,
+                    'has_generic': hit.has_generic,
+                    'has_approved_generic': hit.has_approved_generic,
+                    'generic_products': hit.generic_products.split("|")}
+            return data
+
+    @staticmethod
     def __query_graphstore_patents_products(db_ids: list) -> Optional[dict]:
-        # TODO: Add data to SQLite DB
-        patent_data = dict()
+        """Used to retrieve patent/product information for DrugBank IDs not in DB."""
+        logger.info("Querying graphstore for patent/product information")
+        sess = session()
+        pp_data = dict()
         for id_list_chunk in chunks(db_ids, n=400):
             results = rest_query.sql(PATENTS_PRODUCTS.format(id_list_chunk)).data
             for hit in results:
-                patent_data[hit.pop('name')] = hit  # Remaining keys are drug_patents + drug_products
+                drug_name = hit.pop('name')
+                pp_data[drug_name] = hit  # Remaining keys are drug_patents + drug_products
 
-        if not patent_data:
-            return None
+                # Add to DB
+                patent_entry = {**hit['drug_patents'], **{'drug_name': drug_name}}
+                product_entry = {**hit['drug_products'], **{'drug_name': drug_name}}
 
-        return patent_data
+                sess.add(Patents(**patent_entry))
+                sess.add(Products(**product_entry))
+
+            sess.commit()
+
+        return pp_data if pp_data else None
 
     def score_patents(self):
         drugs_and_patents_raw = {drug_name: dd[PATENTS] for drug_name, dd in self.drug_metadata.items()}

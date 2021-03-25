@@ -61,7 +61,7 @@ class Patents(MetaClass, Base):
     __tablename__ = 'patents'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255))
+    drug_name = Column(VARCHAR(255), index=True)
     has_patent = Column(BOOLEAN)
     expired = Column(BOOLEAN)
     patent_numbers = Column(VARCHAR(255))
@@ -71,7 +71,7 @@ class Products(MetaClass, Base):
     __tablename__ = 'products'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255))
+    drug_name = Column(VARCHAR(255), index=True)
     has_generic = Column(BOOLEAN)
     has_approved_generic = Column(BOOLEAN)
     generic_products = Column(VARCHAR(255))
