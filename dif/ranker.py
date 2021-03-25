@@ -580,7 +580,7 @@ class Ranker:
 
         return counts
 
-    def generate_ranking_result_table(self) -> pd.DataFrame:
+    def summarize(self) -> pd.DataFrame:
         rows = []
         for combo in self.unique_drug_target_combos:
             drug_name, symbol = combo['drug'], combo['interactor_name']
