@@ -160,7 +160,6 @@ class Ranker:
 
     def __query_graphstore_patents_products(self, db_ids: list):
         """Used to retrieve patent/product information for DrugBank IDs not in DB."""
-        # TODO duplicate entries
         logger.info("Querying graphstore for patent/product information")
         for id_list_chunk in chunks(db_ids, n=400):
             results = rest_query.sql(PATENTS_PRODUCTS.format(id_list_chunk)).data
