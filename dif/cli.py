@@ -62,13 +62,16 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
 @click.option('-r', '--reward', default=1, help="Points awarded for passing inspection criteria.")
 @click.option('-p', '--penalty', default=-1, help="Points penalized for failing inspection criteria.")
 def rank(symbol: str, pmods: str, reward: int, penalty: int):
+    """Ranks the drug/interactor combos with metadata and returns a summary table."""
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
     finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
     finder.druggable_interactors()
     ranker = Ranker(finder, reward=reward, penalty=penalty)
-    ranker.count_bioassays()
+    ranker.rank()
+    summary = ranker.summarize()
+    click.echo(summary)
 
 
 if __name__ == "__main__":
