@@ -26,10 +26,13 @@ class Ranker:
     """Class for taking an InteractorFinder object with saved results and annotating said results with ranking
     metadata."""
 
-    def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1):
+    def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1,
+                 disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
         """Should be initialized with an InteractorFinder object that has results saved."""
         self.symbol = symbol
         self.pmods = pmods
+        self.disease = disease_keyword
+        self.similar_diseases = similar_diseases
 
         self.__finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
         self.__finder.druggable_interactors()
@@ -52,8 +55,14 @@ class Ranker:
         return self.__finder.unique_drugs()
 
     @property
-    def unique_drug_target_combos(self) -> list:
-        return self.__finder.drug_and_interactors().to_dict('records')
+    def unique_drug_target_combos(self) -> set:
+        unique_pairs = set()
+        pairs = self.__finder.drug_and_interactors().to_dict('records')
+
+        for combo in pairs:
+            unique_pairs.add((combo['drug'], combo['interactor_name']))
+
+        return unique_pairs
 
     @property
     def dbid_drugname_mapper(self):
@@ -448,7 +457,7 @@ class Ranker:
         if to_import:
             self.__import_ct_data(to_import)
 
-    def score_cts(self, disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
+    def score_cts(self):
         """Scores drugs based on involvement in a clinical trial. Returned dictionary contains
         points and relevant AD-associated CT information."""
 
@@ -458,20 +467,20 @@ class Ranker:
             pts = self.__reward  # Default to reward unless changed
 
             if metadata[CLINICAL_TRIALS]:  # There is clinical trial data
-                self.drug_scores[drug_name][CLINICAL_TRIALS]['trials'] = dict()
+                self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS] = dict()
                 for trial_id, trial_data in metadata[CLINICAL_TRIALS].items():
                     ct_score = {'keyword_disease_investigated': False,
                                 'trial_ongoing': False,
                                 'similar_disease_investigated': False}
 
-                    if disease_keyword in trial_data['conditions']:  # Disease-associated CT
+                    if self.disease in trial_data['conditions']:  # Disease-associated CT
                         ct_score['keyword_disease_investigated'] = True
                         if trial_data['trial_status'] in CT_MAPPER['ongoing']:
                             ct_score['trial_ongoing'] = True
                             pts += self.__penalty
 
                     else:  # Not associated with primary disease
-                        if set(trial_data['conditions']) & set(similar_diseases):  # Trial for similar disease
+                        if set(trial_data['conditions']) & set(self.similar_diseases):  # Trial for similar disease
                             ct_score['similar_disease_investigated'] = True
                             pts += self.__reward * 2  # Double points
                         else:
@@ -479,7 +488,7 @@ class Ranker:
                                 ct_score['trial_ongoing'] = True
                                 pts += self.__penalty
 
-                    self.drug_scores[drug_name][CLINICAL_TRIALS]['trials'][trial_id] = ct_score
+                    self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS][trial_id] = ct_score
             self.drug_scores[drug_name][CLINICAL_TRIALS][POINTS] = pts
 
     def count_associated_pathways(self) -> dict:
@@ -590,25 +599,26 @@ class Ranker:
 
     def summarize(self) -> pd.DataFrame:
         rows = []
-        for combo in self.unique_drug_target_combos:
-            drug_name, symbol = combo['drug'], combo['interactor_name']
+        for drug_name, symbol in self.unique_drug_target_combos:
 
             synergizes = "Yes" if self.drug_scores[drug_name][INTERACTORS][symbol][SYNERGY] else "No"
 
             # Interactor metadata
             num_bioassays = self.interactor_metadata[symbol]['bioassays']
-            num_total_edges = self.interactor_metadata[symbol]['edges']
+            num_total_edges = self.interactor_metadata[symbol]['edges']['both_count']
 
             # Drug metadata
             ongoing_patent = "Yes" if self.drug_scores[drug_name][PATENTS]['expired'] is True else "No"
             has_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_generic'] is True else "No"
+
+            # Compile
             row = {'Drug': drug_name,
                    'Target': symbol,
                    'Synergizes': synergizes,
                    'Number of BioAssays for Target': num_bioassays,
                    'Number of Causal Edges for Target': num_total_edges,
                    'Drug Patent Ongoing': ongoing_patent,
-                   'Generic Version of Drug Available': has_generic}
+                   'Generic Version of Drug Available': has_generic,}
             rows.append(row)
 
         return pd.DataFrame(rows)
