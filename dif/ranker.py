@@ -30,11 +30,13 @@ class Ranker:
         """Should be initialized with an InteractorFinder object that has results saved."""
         self.symbol = symbol
         self.pmods = pmods
-        self.__finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal').drug_and_interactors()
+
+        self.__finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
+        self.__finder.druggable_interactors()
+        self.table = self.__finder.results
+
         self.__penalty = penalty
         self.__reward = reward
-
-        self.table = self.__finder.results
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
