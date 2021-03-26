@@ -74,7 +74,6 @@ class Ranker:
 
     def score_drugs(self):
         """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
-        self.count_drug_targets()
         self.score_drug_relationships()
         self.score_ppt()
         self.score_cts()
@@ -93,9 +92,8 @@ class Ranker:
         for drug_name, target_info in drug_target_counts_raw.items():
             if not self.drug_scores[drug_name][TARGET_COUNT]:  # No cached data
                 if target_info:
-                    hit = target_info[0]['target_symbols']
-                    targets = [symbol for symbol in hit if symbol is not None]
-                    entry_data = {'drug_name': drug_name, 'num_targets': len(hit), 'targets': "|".join(targets)}
+                    targets = [symbol for symbol in target_info if symbol is not None]
+                    entry_data = {'drug_name': drug_name, 'num_targets': len(target_info), 'targets': "|".join(targets)}
 
                 else:  # Nothing found in graphstore
                     entry_data = {'drug_name': drug_name, 'num_targets': -1, 'targets': "N/A"}
