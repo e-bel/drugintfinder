@@ -15,8 +15,8 @@ from ebel_rest import query as rest_query
 from dif.constants import *
 from dif.utils import chunks
 from dif.finder import InteractorFinder
-from dif.models import Trials, Edges, Patents, Products
 from dif.defaults import BIOASSAY_CACHE, session, SIMILAR_DISEASES
+from dif.models import Trials, TargetStats, Patents, Products, DrugStats
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -74,8 +74,9 @@ class Ranker:
 
     def score_drugs(self):
         """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
+        self.count_drug_targets()
         self.score_drug_relationships()
-        self.score_patents_and_generics()
+        self.score_ppt()
         self.score_cts()
         # self.score_homologs()
 
@@ -84,9 +85,30 @@ class Ranker:
         self.count_bioassays()
         self.count_edges()
 
-    def score_patents_and_generics(self):
+    def count_drug_targets(self):
+        """Gathers the number of targets for each drug."""
+        sess = session()
+        logger.info("Counting drug targets")
+        drug_target_counts_raw = {drug_name: dd[TARGET_COUNT] for drug_name, dd in self.drug_metadata.items()}
+        for drug_name, target_info in drug_target_counts_raw.items():
+            if not self.drug_scores[drug_name][TARGET_COUNT]:  # No cached data
+                if target_info:
+                    hit = target_info[0]['target_symbols']
+                    targets = [symbol for symbol in hit if symbol is not None]
+                    entry_data = {'drug_name': drug_name, 'num_targets': len(hit), 'targets': "|".join(targets)}
+
+                else:  # Nothing found in graphstore
+                    entry_data = {'drug_name': drug_name, 'num_targets': -1, 'targets': "N/A"}
+
+                self.drug_scores[drug_name][TARGET_COUNT] = entry_data['num_targets']
+                sess.add(DrugStats(**entry_data))
+
+        sess.commit()
+
+    def score_ppt(self):
+        """Scores the patents, products, and counts targets for each drug."""
         missing_pp_db_ids = set()
-        patents, products = self.__query_db_pp_drugs()
+        patents, products, targets = self.__query_db_pp_drugs()
 
         for db_id, drug_name in self.dbid_drugname_mapper.items():
             # Check patents/products - if present then add directly to scores
@@ -96,14 +118,18 @@ class Ranker:
             if drug_name in products:
                 self.drug_scores[drug_name][PRODUCTS] = products[drug_name]
 
+            if drug_name in targets:
+                self.drug_scores[drug_name][TARGET_COUNT] = targets[drug_name]
+
             # If one is missing, add drugbank ID to list to be queried in graphstore
-            if drug_name not in patents or drug_name not in products:
+            if drug_name not in patents or drug_name not in products or drug_name not in targets:
                 missing_pp_db_ids.add(db_id)
 
         # Query graphstore and parse results
-        self.__query_graphstore_patents_products(list(missing_pp_db_ids))
+        self.__query_graphstore_ppt(list(missing_pp_db_ids))
         self.score_patents()
         self.score_products()
+        self.count_drug_targets()
 
     def __compile_drug_metadata(self) -> dict:
         metadata = self.__generate_ranking_dict()
@@ -136,16 +162,18 @@ class Ranker:
                                   PRODUCTS: dict(),
                                   IDENTIFIERS: dict(),
                                   INTERACTORS: dict(),
-                                  CLINICAL_TRIALS: dict()
+                                  CLINICAL_TRIALS: dict(),
+                                  TARGET_COUNT: None,
                                   }
                       for drug_name in self.drugs}
         return empty_dict
 
     def __query_db_pp_drugs(self) -> tuple:
         """Gets currently cached patent and product information and adds points."""
-        patents, products = dict(), dict()
+        patents, products, targets = dict(), dict(), dict()
         patent_rows = session().query(Patents).all()
         product_rows = session().query(Products).all()
+        target_rows = session().query(DrugStats).all()
 
         for pat in patent_rows:
             patents[pat.drug_name] = {'has_patent': pat.has_patent,
@@ -165,13 +193,16 @@ class Ranker:
 
             products[prod.drug_name][POINTS] = pts
 
-        return patents, products
+        for targ in target_rows:
+            targets[targ.drug_name] = targ.num_targets
 
-    def __query_graphstore_patents_products(self, db_ids: list):
-        """Used to retrieve patent/product information for DrugBank IDs not in DB."""
-        logger.info("Querying graphstore for patent/product information")
+        return patents, products, targets
+
+    def __query_graphstore_ppt(self, db_ids: list):
+        """Used to retrieve patent/product/target information for DrugBank IDs not in DB."""
+        logger.info("Querying graphstore for patent/product/target information")
         for id_list_chunk in chunks(db_ids, n=400):
-            results = rest_query.sql(PATENTS_PRODUCTS.format(id_list_chunk)).data
+            results = rest_query.sql(PATENTS_PRODUCTS_TARGETS.format(id_list_chunk)).data
             for hit in results:
                 drug_name = hit.pop('name')
                 if not self.drug_scores[drug_name][PATENTS]:  # Patent score already present
@@ -179,6 +210,9 @@ class Ranker:
 
                 if not self.drug_scores[drug_name][PRODUCTS]:
                     self.drug_metadata[drug_name][PRODUCTS] = hit['drug_products']
+
+                if not self.drug_scores[drug_name][TARGET_COUNT]:
+                    self.drug_metadata[drug_name][TARGET_COUNT] = hit['target_symbols']
 
     def score_patents(self):
         """Parses patent information from graphstore and generates a score. Imports into SQLite DB at the end."""
@@ -504,7 +538,7 @@ class Ranker:
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
         """Obtains counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
-        results = session().query(Edges).filter_by(symbol=symbol).all()
+        results = session().query(TargetStats).filter_by(symbol=symbol).all()
         assert len(results) < 2
         if results:
             hit = results[0]
@@ -523,7 +557,7 @@ class Ranker:
 
         logger.info(f"Importing edge counts into DB for {symbol}")
         sess = session()
-        edge_entry = Edges(**counts)
+        edge_entry = TargetStats(**counts)
         sess.add(edge_entry)
         sess.commit()
 
@@ -610,6 +644,8 @@ class Ranker:
             # Drug metadata
             ongoing_patent = "Yes" if self.drug_scores[drug_name][PATENTS]['expired'] is True else "No"
             has_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_generic'] is True else "No"
+            target_count = self.drug_scores[drug_name][TARGET_COUNT]
+            target_count_entry = "N/A" if target_count == -1 else target_count
 
             # Compile
             row = {'Drug': drug_name,
@@ -618,7 +654,8 @@ class Ranker:
                    'Number of BioAssays for Target': num_bioassays,
                    'Number of Causal Edges for Target': num_total_edges,
                    'Drug Patent Ongoing': ongoing_patent,
-                   'Generic Version of Drug Available': has_generic,}
+                   'Generic Version of Drug Available': has_generic,
+                   'Number of Drug Targets': target_count_entry}
             rows.append(row)
 
         return pd.DataFrame(rows)

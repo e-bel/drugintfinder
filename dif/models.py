@@ -15,7 +15,7 @@ class MetaClass:
 
 
 class Druggable(MetaClass, Base):
-    __tablename__ = 'druggable'
+    __tablename__ = 'druggable_interactor_relations'
     id = Column(Integer, primary_key=True)
 
     drug = Column(VARCHAR(1000))
@@ -89,14 +89,23 @@ class Trials(MetaClass, Base):
     drugs_in_trial = Column(VARCHAR(255))
 
 
-class Edges(MetaClass, Base):
-    __tablename__ = 'edges'
+class TargetStats(MetaClass, Base):
+    __tablename__ = 'target_stats'
     id = Column(Integer, primary_key=True)
 
     symbol = Column(VARCHAR(255), index=True)
     out_count = Column(INTEGER)
     in_count = Column(INTEGER)
     both_count = Column(INTEGER)
+
+
+class DrugStats(MetaClass, Base):
+    __tablename__ = 'drug_stats'
+    id = Column(Integer, primary_key=True)
+
+    drug_name = Column(VARCHAR(255), index=True)
+    num_targets = Column(INTEGER)
+    targets = Column(VARCHAR(255))
 
 
 Base.metadata.create_all(engine)

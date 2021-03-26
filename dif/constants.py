@@ -9,6 +9,7 @@ INTERACTORS = 'interactors'
 DRUG_NAME = 'drug_name'
 SYNERGY = 'synergy'
 TRIALS = 'trials'
+TARGET_COUNT = 'target_count'
 CLINICAL_TRIALS = 'clinical_trials'
 TIC = 'target_interactor_contradiction'
 DAC = 'drug_action_contradiction'
@@ -95,8 +96,8 @@ UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true L
 CLINICAL_TRIAL_FROM_DRUG = """SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM (
 SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}')"""
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
-PATENTS_PRODUCTS = "SELECT name, patents as drug_patents, products.product as drug_products FROM drugbank " \
-                   "WHERE id in {}"
+PATENTS_PRODUCTS_TARGETS = "SELECT name, patents as drug_patents, products.product as drug_products, target_symbols " \
+                           "FROM drugbank WHERE id in {}"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}

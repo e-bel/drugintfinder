@@ -77,7 +77,7 @@ class InteractorFinder:
         -------
         pd.DataFrame
         """
-        table = 'general'
+        table = General.__tablename__
         cached_results = self.__query_db(node_type=target_type, druggable=False)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
@@ -128,7 +128,7 @@ class InteractorFinder:
         -------
         pd.DataFrame
         """
-        table = 'druggable'
+        table = Druggable.__tablename__
         target_type = 'protein'  # Druggable means protein target
 
         cached_results = self.__query_db(node_type=target_type, druggable=True)
