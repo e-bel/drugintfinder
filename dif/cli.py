@@ -66,9 +66,7 @@ def rank(symbol: str, pmods: str, reward: int, penalty: int):
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
-    finder.druggable_interactors()
-    ranker = Ranker(finder, reward=reward, penalty=penalty)
+    ranker = Ranker(symbol=symbol, pmods=pmods, reward=reward, penalty=penalty)
     ranker.rank()
     summary = ranker.summarize()
     click.echo(summary)

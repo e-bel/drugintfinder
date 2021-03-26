@@ -26,17 +26,15 @@ class Ranker:
     """Class for taking an InteractorFinder object with saved results and annotating said results with ranking
     metadata."""
 
-    def __init__(self, finder: InteractorFinder, penalty: int = -1, reward: int = 1):
+    def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1):
         """Should be initialized with an InteractorFinder object that has results saved."""
-        self.finder = finder
+        self.symbol = symbol
+        self.pmods = pmods
+        self.__finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal').drug_and_interactors()
         self.__penalty = penalty
         self.__reward = reward
 
-        if self.finder.results is None:
-            raise ValueError("InteractorFinder.results is empty! First use InteractorFinder().find_interactors() or "
-                             "InteractorFinder().druggable_interactors().")
-
-        self.table = finder.results
+        self.table = self.__finder.results
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
@@ -45,15 +43,15 @@ class Ranker:
 
     @property
     def interactors(self) -> list:
-        return self.finder.unique_interactors()
+        return self.__finder.unique_interactors()
 
     @property
     def drugs(self) -> list:
-        return self.finder.unique_drugs()
+        return self.__finder.unique_drugs()
 
     @property
     def unique_drug_target_combos(self) -> list:
-        return self.finder.drug_and_interactors().to_dict('records')
+        return self.__finder.drug_and_interactors().to_dict('records')
 
     @property
     def dbid_drugname_mapper(self):
