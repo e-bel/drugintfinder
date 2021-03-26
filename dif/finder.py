@@ -28,6 +28,8 @@ class InteractorFinder:
     def __query_graphstore(sql: str, print_sql: bool = False) -> Optional[pd.DataFrame]:
         if print_sql:
             print(sql)
+
+        logger.warning("Querying graphstore for interactors - this may take awhile")
         results = rest_query.sql(sql).table
 
         if isinstance(results, str):
