@@ -93,11 +93,15 @@ IN_COUNT = "SELECT count(*) as number FROM causal WHERE in.name = '{}' AND in.pu
 OUT_COUNT = "SELECT count(*) as number FROM causal WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"
 
 UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
-CLINICAL_TRIAL_FROM_DRUG = """SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM (
-SELECT expand(clinical_trials) FROM drugbank WHERE id = '{}')"""
+
+CLINICAL_TRIALS_COUNT = "SELECT count(*) as trial_count FROM clinical_trial"
+CLINICAL_TRIALS_DATA = "SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM " \
+                       "clinical_trial SKIP {} LIMIT {}"
+
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
-PATENTS_PRODUCTS_TARGETS = "SELECT name, patents as drug_patents, products.product as drug_products, target_symbols " \
-                           "FROM drugbank WHERE id in {}"
+DRUG_METADATA = "SELECT id as drugbank_id, name as drug_name, patents as drug_patents, " \
+                "products.product as drug_products, target_symbols, clinical_trials.trial_id AS clinical_trials " \
+                "FROM drugbank"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}

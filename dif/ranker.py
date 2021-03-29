@@ -16,7 +16,7 @@ from dif.constants import *
 from dif.utils import chunks
 from dif.finder import InteractorFinder
 from dif.defaults import BIOASSAY_CACHE, session, SIMILAR_DISEASES
-from dif.models import Trials, TargetStats, Patents, Products, DrugStats
+from dif.models import Trials, TargetStats, Patents, Products, Drugs
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -101,9 +101,39 @@ class Ranker:
                     entry_data = {'drug_name': drug_name, 'num_targets': -1, 'targets': "N/A"}
 
                 self.drug_scores[drug_name][TARGET_COUNT] = entry_data['num_targets']
-                sess.add(DrugStats(**entry_data))
+                sess.add(Drugs(**entry_data))
 
         sess.commit()
+
+    def __query_db_pp_drugs(self) -> tuple:
+        """Gets currently cached patent and product information and adds points."""
+        patents, products, targets = dict(), dict(), dict()
+        patent_rows = session().query(Patents).all()
+        product_rows = session().query(Products).all()
+        target_rows = session().query(Drugs).all()
+
+        for pat in patent_rows:
+            patents[pat.drug_name] = {'has_patent': pat.has_patent,
+                                      'expired': pat.expired,
+                                      'patent_numbers': pat.patent_numbers.split("|"),
+                                      POINTS: self.__reward if pat.expired else self.__penalty}
+
+        for prod in product_rows:
+            products[prod.drug_name] = {'has_generic': prod.has_generic,
+                                        'has_approved_generic': prod.has_approved_generic,
+                                        'generic_products': prod.generic_products.split("|") or None}
+
+            if prod.has_generic and prod.has_approved_generic:
+                pts = self.__reward
+            else:
+                pts = self.__penalty
+
+            products[prod.drug_name][POINTS] = pts
+
+        for targ in target_rows:
+            targets[targ.drug_name] = targ.num_targets
+
+        return patents, products, targets
 
     def score_ppt(self):
         """Scores the patents, products, and counts targets for each drug."""
@@ -167,36 +197,6 @@ class Ranker:
                                   }
                       for drug_name in self.drugs}
         return empty_dict
-
-    def __query_db_pp_drugs(self) -> tuple:
-        """Gets currently cached patent and product information and adds points."""
-        patents, products, targets = dict(), dict(), dict()
-        patent_rows = session().query(Patents).all()
-        product_rows = session().query(Products).all()
-        target_rows = session().query(DrugStats).all()
-
-        for pat in patent_rows:
-            patents[pat.drug_name] = {'has_patent': pat.has_patent,
-                                      'expired': pat.expired,
-                                      'patent_numbers': pat.patent_numbers.split("|"),
-                                      POINTS: self.__reward if pat.expired else self.__penalty}
-
-        for prod in product_rows:
-            products[prod.drug_name] = {'has_generic': prod.has_generic,
-                                        'has_approved_generic': prod.has_approved_generic,
-                                        'generic_products': prod.generic_products.split("|") or None}
-
-            if prod.has_generic and prod.has_approved_generic:
-                pts = self.__reward
-            else:
-                pts = self.__penalty
-
-            products[prod.drug_name][POINTS] = pts
-
-        for targ in target_rows:
-            targets[targ.drug_name] = targ.num_targets
-
-        return patents, products, targets
 
     def __query_graphstore_ppt(self, db_ids: list):
         """Used to retrieve patent/product/target information for DrugBank IDs not in DB."""
@@ -435,61 +435,6 @@ class Ranker:
                                             'drugs_in_trial': r.drugs_in_trial.split("|")}
 
             return compiled
-
-    @staticmethod
-    def __import_ct_data(ct_data: list):
-        """Imports previously missing clinical trial data into SQLite DB."""
-        logger.info("Importing missing Clinical Trial data")
-        sess = session()
-        for entry in ct_data:
-            for key, vals in entry.items():
-                if isinstance(vals, list):
-                    entry[key] = "|".join(vals)
-
-            trial = Trials(**entry)
-            sess.add(trial)
-
-        sess.commit()
-
-    def __collect_ct_info(self):
-        """Collects clinical trial information for every identified drug."""
-        logger.info("Collecting Clinical Trial information for each drug")
-        to_import = []
-        db_ids = {data[IDENTIFIERS]['drugbank_id']: drug_name for drug_name, data in self.drug_metadata.items()}
-        for db_id, drug_name in tqdm(db_ids.items(), total=len(db_ids), desc="Gathering clinical trial info"):
-            cached_data = self.__query_db_ct_data(db_id)
-            if cached_data is not None:
-                self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
-                    {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **cached_data}
-
-            else:  # Have to query graphstore
-                results = rest_query.sql(CLINICAL_TRIAL_FROM_DRUG.format(db_id)).data
-                if results:
-                    ct_data = dict()
-                    for r in results:
-                        # Parse graphstore data
-                        status = r['overall_status']
-                        trial_id = r['trial_id']
-                        primary_condition = r['condition'] if r['condition'] is not None else []
-                        mesh = r['mesh_conditions'] if r['mesh_conditions'] is not None else []
-                        conditions = ";".join(set(primary_condition + mesh))
-                        trial_drugs = r['drugs_in_trial'] if 'drugs_in_trial' in r else None
-
-                        # Structure data
-                        import_data = {'trial_id': trial_id, DRUG_NAME: drug_name, 'drugbank_id': db_id}
-                        metadata = {'trial_status': status, 'conditions': conditions, 'drugs_in_trial': trial_drugs}
-                        to_import.append({**import_data, **metadata})
-
-                        ct_data[trial_id] = metadata
-
-                    self.drug_metadata[drug_name][CLINICAL_TRIALS] = \
-                        {**self.drug_metadata[drug_name][CLINICAL_TRIALS], **ct_data}
-
-                else:  # Enter empty row for drug to indicate no clinical trials associated
-                    to_import.append({DRUG_NAME: drug_name, 'drugbank_id': db_id})
-
-        if to_import:
-            self.__import_ct_data(to_import)
 
     def score_cts(self):
         """Scores drugs based on involvement in a clinical trial. Returned dictionary contains

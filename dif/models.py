@@ -1,11 +1,17 @@
 """Table definitions for SQLite DB."""
 
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN
+from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN, Table, ForeignKey
 
 from dif.defaults import engine
 
 Base = declarative_base()
+ct_drug_association_table = Table('ct_drug_association',
+                                  Base.metadata,
+                                  Column('ct_id', Integer, ForeignKey(f'trials.id')),
+                                  Column('drug_id', Integer, ForeignKey(f'drugs.id'))
+                                  )
 
 
 class MetaClass:
@@ -61,28 +67,26 @@ class Patents(MetaClass, Base):
     __tablename__ = 'patents'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255), index=True)
-    has_patent = Column(BOOLEAN)
     expired = Column(BOOLEAN)
-    patent_numbers = Column(VARCHAR(255))
+    patent_number = Column(VARCHAR(255))
+    drug_id = Column(Integer, ForeignKey('drugs.id'))
 
 
 class Products(MetaClass, Base):
     __tablename__ = 'products'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255), index=True)
+    product_name = Column(VARCHAR(255), index=True)
     has_generic = Column(BOOLEAN)
+    is_approved = Column(BOOLEAN)
     has_approved_generic = Column(BOOLEAN)
-    generic_products = Column(VARCHAR(255))
+    drug_id = Column(Integer, ForeignKey('drugs.id'))
 
 
 class Trials(MetaClass, Base):
     __tablename__ = 'trials'
     id = Column(Integer, primary_key=True)
 
-    drug_name = Column(VARCHAR(255), index=True)
-    drugbank_id = Column(VARCHAR(255), index=True)
     trial_id = Column(VARCHAR(255), index=True)
     trial_status = Column(VARCHAR(255))
     conditions = Column(VARCHAR(255))
@@ -99,13 +103,19 @@ class TargetStats(MetaClass, Base):
     both_count = Column(INTEGER)
 
 
-class DrugStats(MetaClass, Base):
-    __tablename__ = 'drug_stats'
+class Drugs(MetaClass, Base):
+    __tablename__ = 'drugs'
     id = Column(Integer, primary_key=True)
 
     drug_name = Column(VARCHAR(255), index=True)
+    drugbank_id = Column(VARCHAR(255), index=True)
     num_targets = Column(INTEGER)
     targets = Column(VARCHAR(255))
+    patents = relationship("Patents")
+    products = relationship("Products")
+    clinical_trials = relationship("Trials",
+                                   secondary=ct_drug_association_table,
+                                   backref="drugs")
 
 
 Base.metadata.create_all(engine)
