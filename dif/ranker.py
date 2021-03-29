@@ -37,6 +37,8 @@ class Ranker:
         self.__finder = InteractorFinder(symbol=symbol, pmods=pmods, edge='causal')
         self.__finder.druggable_interactors()
         self.table = self.__finder.results
+        if self.table is None:
+            raise ValueError(f"No druggable interactors were found for {self.symbol} + {self.pmods}")
 
         self.__penalty = penalty
         self.__reward = reward

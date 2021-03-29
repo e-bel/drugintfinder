@@ -108,7 +108,7 @@ class InteractorFinder:
 
             df_results = self.__query_graphstore(formatted_sql, print_sql=print_sql)
 
-            if df_results is not None and not df_results.empty:
+            if df_results is not None:
                 self.results = df_results[cols]
                 self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
                 self.results.index += 1
@@ -172,9 +172,8 @@ class InteractorFinder:
             pure_results = self.__query_graphstore(sql=formatted_pure_sql, print_sql=print_sql)
             capsule_results = self.__query_graphstore(sql=formatted_capsule_sql, print_sql=print_sql)
 
-            df_concat = pd.concat([pure_results, capsule_results], axis=0)
-
-            if df_concat is not None and not df_concat.empty:
+            if pure_results is not None or capsule_results is not None:  # Only need one to have results
+                df_concat = pd.concat([pure_results, capsule_results], axis=0)
                 self.results = df_concat[cols]
                 self.results.index += 1
                 self.results.index.rename('id', inplace=True)
