@@ -25,9 +25,6 @@ def populate():
 class DrugPopulator:
 
     def __init__(self):
-        sess.query(Drugs).delete()
-        sess.query(Patents).delete()
-        sess.query(Products).delete()
         self.__num_drugs_in_graphstore = rest_query.sql(DRUG_COUNT).data[0]['num_drugs']
 
     def __collect_drugs_from_graphstore(self, chunk_size: int = 10000) -> list:

@@ -69,7 +69,7 @@ class Patents(MetaClass, Base):
 
     expired = Column(BOOLEAN)
     patent_number = Column(Integer)
-    drug_id = Column(Integer, ForeignKey('drugs.id'))
+    drug_id = Column(Integer, ForeignKey('drugs.id'), index=True)
 
 
 class Products(MetaClass, Base):
@@ -80,7 +80,7 @@ class Products(MetaClass, Base):
     has_generic = Column(BOOLEAN)
     is_approved = Column(BOOLEAN)
     has_approved_generic = Column(BOOLEAN)
-    drug_id = Column(Integer, ForeignKey('drugs.id'))
+    drug_id = Column(Integer, ForeignKey('drugs.id'), index=True)
 
 
 class Trials(MetaClass, Base):

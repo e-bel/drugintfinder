@@ -115,7 +115,7 @@ class InteractorFinder:
                 self.results.index.rename('id', inplace=True)
 
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
-                self.results.to_sql(table, if_exists="replace", con=engine)
+                self.results.to_sql(table, if_exists="append", con=engine)
 
     def druggable_interactors(self, print_sql: bool = False):
         """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from

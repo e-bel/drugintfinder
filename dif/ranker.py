@@ -8,7 +8,6 @@ import pandas as pd
 
 from tqdm import tqdm
 from typing import Optional
-from datetime import datetime
 from json.decoder import JSONDecodeError
 from ebel_rest import query as rest_query
 
@@ -45,8 +44,8 @@ class Ranker:
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
-        self.drug_metadata = self.__compile_drug_metadata()
         self.drug_scores = self.__generate_ranking_dict()
+        self.drug_metadata = self.__compile_drug_metadata()
 
     @property
     def drug_cache(self) -> dict:
@@ -55,7 +54,7 @@ class Ranker:
 
     @property
     def relevant_drug_row_ids(self) -> list:
-        return [self.drug_cache[drug_name] for drug_name in self.interactor_drugs]
+        return [self.drug_cache[drug_name]['row_id'] for drug_name in self.interactor_drugs]
 
     @property
     def interactors(self) -> list:
@@ -86,7 +85,7 @@ class Ranker:
     def score_drugs(self):
         """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
         self.score_drug_relationships()
-        self.score_ppt()
+        self.score_patents_and_products()
         self.score_cts()
         # self.score_homologs()
 
@@ -95,80 +94,9 @@ class Ranker:
         self.count_bioassays()
         self.count_edges()
 
-    def __query_db_pp_drugs(self) -> tuple:
-        """Gets currently cached patent and product information and adds points."""
-        patents, products, targets = dict(), dict(), dict()
-        patent_rows = session().query(Patents).all()
-        product_rows = session().query(Products).all()
-
-        for pat in patent_rows:
-            patents[pat.drug_name] = {'has_patent': pat.has_patent,
-                                      'expired': pat.expired,
-                                      'patent_numbers': pat.patent_numbers.split("|"),
-                                      POINTS: self.__reward if pat.expired else self.__penalty}
-
-        for prod in product_rows:
-            products[prod.drug_name] = {'has_generic': prod.has_generic,
-                                        'has_approved_generic': prod.has_approved_generic,
-                                        'generic_products': prod.generic_products.split("|") or None,
-                                        POINTS: self.__reward if prod.has_approved_generic else self.__penalty}
-
-        return patents, products, targets
-
-    def score_ppt(self):
-        """Scores the patents, products, and counts targets for each drug."""
-        missing_pp_db_ids = set()
-        patents, products, targets = self.__query_db_pp_drugs()
-
-        for db_id, drug_name in self.dbid_drugname_mapper.items():
-            # Check patents/products - if present then add directly to scores
-            if drug_name in patents:
-                self.drug_scores[drug_name][PATENTS] = patents[drug_name]
-
-            if drug_name in products:
-                self.drug_scores[drug_name][PRODUCTS] = products[drug_name]
-
-            if drug_name in targets:
-                self.drug_scores[drug_name][TARGET_COUNT] = targets[drug_name]
-
-            # If one is missing, add drugbank ID to list to be queried in graphstore
-            if drug_name not in patents or drug_name not in products or drug_name not in targets:
-                missing_pp_db_ids.add(db_id)
-
-        # Query graphstore and parse results
-        self.score_patents()
-        self.score_products()
-
-    def __compile_patent_information(self) -> dict:
-        """Gathers all requested patent information into drug_metadata."""
-        relevant_patents = self.session.query(Drugs.drug_name, Patents.expired)\
-            .join(Drugs).filter(Patents.drug_id.in_(self.relevant_drug_row_ids)).all()
-
-        patent_mapper = dict()
-        for drug_name, expired in relevant_patents:
-            if drug_name in patent_mapper:
-                patent_mapper[drug_name].append(expired)
-            else:
-                patent_mapper[drug_name] = [expired]
-
-        return {drug_name: all(expired) for drug_name, expired in patent_mapper}
-
-    def __compile_product_information(self) -> dict:
-        """Gathers all requested product information into drug_metadata."""
-        relevant_products = self.session.query(Drugs.drug_name, Products.has_approved_generic)\
-            .join(Drugs).filter(Products.drug_id.in_(self.relevant_drug_row_ids)).all()
-
-        product_mapper = dict()
-        for drug_name, approved_generic in relevant_products:
-            if drug_name in product_mapper:
-                product_mapper[drug_name].append(approved_generic)
-            else:
-                product_mapper[drug_name] = [approved_generic]
-
-        return {drug_name: all(approved_generic) for drug_name, approved_generic in product_mapper}
-
     def __compile_drug_metadata(self) -> dict:
         metadata = self.__generate_ranking_dict()
+        logger.info("Compiling drug metadata")
 
         for r in self.table.to_dict('records'):
             drug_name = r['drug']
@@ -190,11 +118,6 @@ class Ranker:
                             'actions': r['drug_rel_actions'].split("|") if r['drug_rel_actions'] else None}
                 metadata[drug_name][INTERACTORS][interactor_name] = rel_data
 
-            metadata[drug_name][TARGET_COUNT] = self.drug_cache[drug_name]['num_targets']
-
-            patent_metadata = self.__compile_patent_information()
-            product_metadata =
-
         return metadata
 
     def __generate_ranking_dict(self) -> dict:
@@ -209,39 +132,38 @@ class Ranker:
                       for drug_name in self.interactor_drugs}
         return empty_dict
 
-    def score_patents(self):
-        """Parses patent information from graphstore and generates a score. Imports into SQLite DB at the end."""
-        drugs_and_patents_raw = {drug_name: dd[PATENTS] for drug_name, dd in self.drug_metadata.items()}
-        logger.info("Scoring patent information")
-        for drug_name, patent_info in drugs_and_patents_raw.items():
-            patent_numbers = []
-            expired_list = []
-            if not self.drug_scores[drug_name][PATENTS]:  # No cached data
+    def score_patents_and_products(self):
+        """Parses patent and product information and generates a score."""
+        logger.info("Scoring patent and product information")
 
-                    all_expired = all(expired_list)
-                    import_data = {'has_patent': bool(patent_numbers),
-                                   'expired': all_expired,
-                                   'patent_numbers': "|".join(patent_numbers),
-                                   POINTS: self.__reward if all_expired else self.__penalty}
+        relevant_patents = self.__session.query(Drugs.drug_name, Patents.expired) \
+            .join(Drugs).filter(Patents.drug_id.in_(self.relevant_drug_row_ids)).all()
 
-                else:
-                    import_data = {'has_patent': False, 'expired': False,
-                                   'patent_numbers': "N/A", POINTS: self.__penalty}
+        relevant_products = self.__session.query(Drugs.drug_name, Products.has_approved_generic) \
+            .join(Drugs).filter(Products.drug_id.in_(self.relevant_drug_row_ids)).all()
 
-                self.drug_scores[drug_name][PATENTS] = import_data
-        # TODO finish
+        patent_mapper = dict()
+        for drug_name, expired in relevant_patents:
+            if drug_name in patent_mapper:
+                patent_mapper[drug_name].append(expired)
+            else:
+                patent_mapper[drug_name] = [expired]
 
-    def score_products(self):
-        """Gives scores to drugs in the hit list based on whether they have an approved generic version."""
-        drugs_and_product_info = {drug_name: dd[PRODUCTS] for drug_name, dd in self.drug_metadata.items()}
-        logger.info("Scoring product information")
-        for drug_name, product_info in drugs_and_product_info.items():
-            if not self.drug_scores[drug_name][PRODUCTS]:  # No cached data
-                if has_generic and has_approved_generic:
-                    pts = self.__reward
-                else:
-                    pts = self.__penalty
-        # TODO finish
+        product_mapper = dict()
+        for drug_name, approved_generic in relevant_products:
+            if drug_name in product_mapper:
+                product_mapper[drug_name].append(approved_generic)
+            else:
+                product_mapper[drug_name] = [approved_generic]
+
+        for drug_name in self.drug_scores.keys():
+            all_patents_expired = all(patent_mapper[drug_name]) if drug_name in patent_mapper else False
+            approved_generic_available = any(product_mapper[drug_name]) if drug_name in product_mapper else False
+            self.drug_scores[drug_name][PATENTS] = {'expired': all_patents_expired,
+                                                    POINTS: self.__reward if all_patents_expired else self.__penalty}
+            self.drug_scores[drug_name][PRODUCTS] = {'has_approved_generic': approved_generic_available,
+                                                     POINTS: self.__reward if approved_generic_available else self.__penalty}
+            self.drug_scores[drug_name][TARGET_COUNT] = self.drug_cache[drug_name]['num_targets']
 
     def score_homologs(self, tc_json: str, db_id_mapper: dict, tc_threshold: int = 0.95):
         """Produces a dictionary detailing structural homologs of every drugbank drug."""
@@ -364,54 +286,55 @@ class Ranker:
 
                 self.drug_scores[drug_name][INTERACTORS][target_name][POINTS] = pts
 
-    @staticmethod
-    def __query_db_ct_data(db_id: str) -> Optional[dict]:
-        """Checks if query results are stored in cache."""
-        logger.info("Querying SQLite DB for Clinical Trial data")
+    def __compile_ct_metadata(self) -> dict:
+        """Compiles the Clinical Trial data from the DB."""
+        relevant_cts = self.__session.query(Trials.trial_id, Trials.conditions, Trials.trial_status, Drugs.drug_name) \
+            .filter(Drugs.id.in_(self.relevant_drug_row_ids)).all()
 
-        results = session().query(Trials).filter_by(drugbank_id=db_id).all()
-        compiled = dict()
-        if results:
-            for r in results:
-                if r.trial_id is not None:  # No 'trial_id' indicates no associated trials and was previously checked
-                    compiled[r.trial_id] = {'trial_status': r.trial_status,
-                                            'conditions': r.conditions.split(";"),
-                                            'drugs_in_trial': r.drugs_in_trial.split("|")}
+        ct_mapper = dict()
+        for row in relevant_cts:
+            trial_id, conditions, trial_status, drug_name = row
+            metadata = {'conditions': conditions.split(";"), 'trial_status': trial_status}
+            if drug_name in ct_mapper:
+                ct_mapper[drug_name][trial_id] = metadata
 
-            return compiled
+            else:
+                ct_mapper[drug_name] = {trial_id: metadata}
+
+        return ct_mapper
 
     def score_cts(self):
         """Scores drugs based on involvement in a clinical trial. Returned dictionary contains
         points and relevant AD-associated CT information."""
 
-        self.__collect_ct_info()
         logger.info("Scoring Clinical Trial data")
-        for drug_name, metadata in self.drug_metadata.items():
+        ct_mapper = self.__compile_ct_metadata()
+
+        for drug_name, ct_metadata in ct_mapper.items():
             pts = self.__reward  # Default to reward unless changed
 
-            if metadata[CLINICAL_TRIALS]:  # There is clinical trial data
-                self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS] = dict()
-                for trial_id, trial_data in metadata[CLINICAL_TRIALS].items():
-                    ct_score = {'keyword_disease_investigated': False,
-                                'trial_ongoing': False,
-                                'similar_disease_investigated': False}
+            self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS] = dict()
+            for trial_id, trial_data in ct_metadata.items():
+                ct_score = {'keyword_disease_investigated': False,
+                            'trial_ongoing': False,
+                            'similar_disease_investigated': False}
 
-                    if self.disease in trial_data['conditions']:  # Disease-associated CT
-                        ct_score['keyword_disease_investigated'] = True
+                if self.disease in trial_data['conditions']:  # Disease-associated CT
+                    ct_score['keyword_disease_investigated'] = True
+                    if trial_data['trial_status'] in CT_MAPPER['ongoing']:
+                        ct_score['trial_ongoing'] = True
+                        pts += self.__penalty
+
+                else:  # Not associated with primary disease
+                    if set(trial_data['conditions']) & set(self.similar_diseases):  # Trial for similar disease
+                        ct_score['similar_disease_investigated'] = True
+                        pts += self.__reward * 2  # Double points
+                    else:
                         if trial_data['trial_status'] in CT_MAPPER['ongoing']:
                             ct_score['trial_ongoing'] = True
                             pts += self.__penalty
 
-                    else:  # Not associated with primary disease
-                        if set(trial_data['conditions']) & set(self.similar_diseases):  # Trial for similar disease
-                            ct_score['similar_disease_investigated'] = True
-                            pts += self.__reward * 2  # Double points
-                        else:
-                            if trial_data['trial_status'] in CT_MAPPER['ongoing']:
-                                ct_score['trial_ongoing'] = True
-                                pts += self.__penalty
-
-                    self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS][trial_id] = ct_score
+                self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS][trial_id] = ct_score
             self.drug_scores[drug_name][CLINICAL_TRIALS][POINTS] = pts
 
     def count_associated_pathways(self) -> dict:
@@ -548,8 +471,3 @@ class Ranker:
             rows.append(row)
 
         return pd.DataFrame(rows)
-
-    def count_number_off_targets(self):
-        """Calculates the number of "off targets" per compound i.e. how many compounds it targets."""
-        # TODO
-        pass
