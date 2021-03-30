@@ -98,10 +98,13 @@ CLINICAL_TRIALS_COUNT = "SELECT count(*) as trial_count FROM clinical_trial"
 CLINICAL_TRIALS_DATA = "SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM " \
                        "clinical_trial SKIP {} LIMIT {}"
 
-ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
+
+DRUG_COUNT = "SELECT count(*) as num_drugs FROM drugbank"
 DRUG_METADATA = "SELECT id as drugbank_id, name as drug_name, patents as drug_patents, " \
                 "products.product as drug_products, target_symbols, clinical_trials.trial_id AS clinical_trials " \
-                "FROM drugbank"
+                "FROM drugbank SKIP {} LIMIT {}"
+
+ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name in {})}}

@@ -68,7 +68,7 @@ class Patents(MetaClass, Base):
     id = Column(Integer, primary_key=True)
 
     expired = Column(BOOLEAN)
-    patent_number = Column(VARCHAR(255))
+    patent_number = Column(Integer)
     drug_id = Column(Integer, ForeignKey('drugs.id'))
 
 

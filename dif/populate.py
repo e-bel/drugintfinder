@@ -2,7 +2,9 @@
 import logging
 
 from tqdm import tqdm
+from sqlalchemy import func
 from datetime import datetime
+from typing import List, Union, Dict
 from ebel_rest import query as rest_query
 
 from dif.constants import *
@@ -12,67 +14,88 @@ from dif.models import Trials, Patents, Products, Drugs
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+sess = session()
+
 
 def populate():
-    populate_ct()
-    populate_drugs()
+    ClinicalTrialPopulator().populate()
+    DrugPopulator().populate()
 
 
-def populate_drugs():
-    """Populates the SQLite DB with Drug data."""
-    pass
+class DrugPopulator:
 
+    def __init__(self):
+        sess.query(Drugs).delete()
+        self.__num_drugs_in_graphstore = rest_query.sql(DRUG_COUNT).data[0]['num_drugs']
 
-# Drugs
-def __collect_drugs_from_graphstore() -> list:
-    """Query clinical trial data in chunks"""
-    logger.info("Collecting drug metadata from graphstore")
-    drug_data = rest_query.sql(DRUG_METADATA).data
-    return drug_data
+    def __collect_drugs_from_graphstore(self, chunk_size: int = 10000) -> list:
+        """Query clinical trial data in chunks"""
+        logger.warning("Collecting drug metadata from graphstore")
+        total_num_chunks = (self.__num_drugs_in_graphstore // chunk_size) + 1
 
+        chunk_index = 0
+        while chunk_index < total_num_chunks:
+            table_chunk = rest_query.sql(DRUG_METADATA.format(chunk_size * chunk_index, chunk_size)).data
+            yield table_chunk
+            chunk_index += 1
 
-def __collect_drug_info():
-    sess = session()
-    drug_data = __collect_drugs_from_graphstore()
-    trial_mapper = __get_clinical_trial_ids()
-    for drug_entry in drug_data:
-        patents = drug_entry.pop("drug_patents")
-        products = drug_entry.pop("drug_products")
-        targets = drug_entry.pop("target_symbols")
-        trial_table_ids = [trial_mapper[trial_id] for trial_id in drug_entry.pop("clinical_trials")]
+    @staticmethod
+    def __extract_values(value_dict: dict, key: str):
+        """Extracts non-None values from key if present and pops key."""
+        values = []
+        if key in value_dict:
+            vals = value_dict.pop(key)
+            if vals is not None:
+                for val in vals:
+                    if val is not None:
+                        values.append(val)
 
-        patent_rows = score_patents(patents)
-        product_rows = score_products(products)
+        return value_dict, values
 
-        drug_entry['num_targets'] = len(targets)
-        drug_entry['targets'] = "|".join(targets)
-        drug_entry['clinical_trials'] = trial_table_ids
+    def populate(self):
+        drug_generator = self.__collect_drugs_from_graphstore()
+        logger.info("Parsing and importing drug information from graphstore")
+        trial_mapper = self.__get_clinical_trial_ids()
+        for drug_data_chunk in drug_generator:
+            for drug_entry in tqdm(drug_data_chunk, desc="Parsing and importing drug data"):
+                patents = drug_entry.pop("drug_patents")
+                products = drug_entry.pop("drug_products")
+                drug_entry, targets = self.__extract_values(drug_entry, "target_symbols")
 
-        new_drug = Drugs(**drug_entry)
-        new_drug.patents = patent_rows
-        new_drug.products = product_rows
-        sess.add(new_drug)
+                drug_entry, trial_table_values = self.__extract_values(drug_entry, "clinical_trials")
+                trial_table_ids = [trial_mapper[trial_id] for trial_id in trial_table_values]
 
-    sess.commit()
+                patent_rows = self.__score_patents(patents) if patents else []
+                product_rows = self.__score_products(products) if products else []
 
+                drug_entry['num_targets'] = len(targets)
+                drug_entry['targets'] = "|".join(targets)
+                drug_entry['clinical_trials'] = trial_table_ids
 
-def __get_clinical_trial_ids() -> dict:
-    """Get row IDs and Clinical Trial IDs for each CT row in DB."""
-    trial_rows = session().query(Trials.id, Trials.trial_id).all()
-    return {r[1]: r[0] for r in trial_rows}
+                new_drug = Drugs(**drug_entry)
+                new_drug.patents = patent_rows
+                new_drug.products = product_rows
+                sess.add(new_drug)
 
+        sess.commit()
 
-def score_patents(patents: list) -> list:
-    """Parses patent information from graphstore and imports it into SQLite DB at the end."""
-    patent_rows = []
-    sess = session()
-    for patent_info in patents:
-        patent_list = patent_info['patent']
+    @staticmethod
+    def __get_clinical_trial_ids() -> dict:
+        """Get row entries and Clinical Trial IDs for each CT row in DB."""
+        trial_rows = sess.query(Trials, Trials.trial_id).all()
+        return {r[1]: r[0] for r in trial_rows}
 
-        if not isinstance(patent_info['patent'], list):
-            patent_list = [patent_info['patent']]
+    @staticmethod
+    def __score_patents(patents: Dict[str, dict]) -> list:
+        """Parses patent information from graphstore and imports it into SQLite DB at the end."""
+        patent_rows = []
+        patent_info = patents['patent']
 
-        for indiv_patent in patent_list:
+        if not isinstance(patent_info, list):
+            patent_info = [patent_info]
+
+        for indiv_patent in patent_info:
+
             expired = datetime.today() > datetime.strptime(indiv_patent['expires'], "%Y-%m-%d")  # Boolean
             pat_number = indiv_patent['number']
 
@@ -81,24 +104,22 @@ def score_patents(patents: list) -> list:
             patent_rows.append(new_patent)
             sess.add(new_patent)
 
-    sess.commit()
-    return patent_rows
+        return patent_rows
 
+    @staticmethod
+    def __score_products(products_raw: Union[Dict[str, dict], List[Dict[str, dict]]]) -> list:
+        """Parses product information from graphstore and imports it into SQLite DB at the end."""
+        product_rows = []
 
-def score_products(products_raw: list) -> list:
-    """Parses product information from graphstore and imports it into SQLite DB at the end."""
-    sess = session()
-    product_rows = []
-    for product_info in products_raw:
-        has_generic = False
-        is_approved = False
-        has_approved_generic = False
-        product_name = None
+        if not isinstance(products_raw, list):
+            products_raw = [products_raw]
 
-        if not isinstance(product_info, list):
-            product_info = [product_info]
+        for product in products_raw:
+            has_generic = False
+            is_approved = False
+            has_approved_generic = False
+            product_name = None
 
-        for product in product_info:
             if product['generic'] == 'true':
                 has_generic = True
                 is_approved = True if product['approved'] == 'true' else False
@@ -106,73 +127,82 @@ def score_products(products_raw: list) -> list:
                     has_approved_generic = True
                 product_name = product['name']
 
-        import_metadata = {'has_generic': has_generic,
-                           'has_approved_generic': has_approved_generic,
-                           'product_name': product_name,
-                           'is_approved': is_approved}
+            import_metadata = {'has_generic': has_generic,
+                               'has_approved_generic': has_approved_generic,
+                               'product_name': product_name,
+                               'is_approved': is_approved}
 
-        new_product = Products(**import_metadata)
-        product_rows.append(new_product)
-        sess.add(new_product)
+            new_product = Products(**import_metadata)
+            product_rows.append(new_product)
+            sess.add(new_product)
 
-    sess.commit()
-    return product_rows
-
-
-# Clinical Trials
-def populate_ct():
-    """Populates the SQLite DB with ClinicalTrial data."""
-    ct_data = __collect_ct_info()
-    __populate_table(Trials, data=ct_data, desc="Clinical Trials")
+        return product_rows
 
 
-def __collect_ct_info_from_graphstore(num_trials: int, chunk_size: int = 10000) -> list:
-    """Query clinical trial data in chunks"""
-    total_num_chunks = (num_trials // chunk_size) + 1
+class ClinicalTrialPopulator:
+    """Clinical Trials class for importing into DB."""
 
-    chunk_index = 0
-    while chunk_index < total_num_chunks:
-        table_chunk = rest_query.sql(CLINICAL_TRIALS_DATA.format(chunk_size * chunk_index, chunk_size)).data
-        yield table_chunk
-        chunk_index += 1
+    def __init__(self):
+        self.__num_trials_in_graphstore = rest_query.sql(CLINICAL_TRIALS_COUNT).data[0]['trial_count']
 
+    def populate(self):
+        """Populates the SQLite DB with ClinicalTrial data."""
+        logger.info("Collecting Clinical Trial information")
+        update = self.__update_needed()
+        if update:
+            ct_data = self.__collect_ct_info()
+            self.__populate_table(ct_data)
 
-def __collect_ct_info() -> list:
-    """Collects clinical trial information for every identified drug."""
-    logger.info("Collecting Clinical Trial information")
-    num_trials = rest_query.sql(CLINICAL_TRIALS_COUNT).data[0]['trial_count']
-    num_chunks = (num_trials // 10000) + 1
-    data_generator = __collect_ct_info_from_graphstore(num_trials)
+    def __update_needed(self) -> bool:
+        """Checks if Clinical Trial data is missing."""
+        db_entries = sess.query(func.count(Trials.id)).first()[0]
+        return False if db_entries == self.__num_trials_in_graphstore else True
 
-    to_import = []
-    for data_chunk in tqdm(data_generator, total=num_chunks, desc="Collecting all CT data"):
-        if data_chunk:
-            for r in data_chunk:
-                # Parse graphstore data
-                status = r['overall_status']
-                trial_id = r['trial_id']
-                primary_condition = r['condition'] if r['condition'] is not None else []
-                mesh = r['mesh_conditions'] if r['mesh_conditions'] is not None else []
-                conditions = ";".join(set(primary_condition + mesh))
-                trial_drugs = r['drugs_in_trial'] if 'drugs_in_trial' in r else None
+    def __collect_ct_info_from_graphstore(self, chunk_size: int = 10000) -> list:
+        """Query clinical trial data in chunks"""
+        total_num_chunks = (self.__num_trials_in_graphstore // chunk_size) + 1
 
-                # Structure data
-                metadata = {'trial_id': trial_id, 'trial_status': status,
-                            'conditions': conditions, 'drugs_in_trial': trial_drugs}
+        chunk_index = 0
+        while chunk_index < total_num_chunks:
+            table_chunk = rest_query.sql(CLINICAL_TRIALS_DATA.format(chunk_size * chunk_index, chunk_size)).data
+            yield table_chunk
+            chunk_index += 1
 
-    return to_import
+    def __collect_ct_info(self) -> list:
+        """Collects clinical trial information for every identified drug."""
+        num_chunks = (self.__num_trials_in_graphstore // 10000) + 1
+        data_generator = self.__collect_ct_info_from_graphstore()
 
+        to_import = []
+        for data_chunk in tqdm(data_generator, total=num_chunks, desc="Collecting all CT data"):
+            if data_chunk:
+                for r in data_chunk:
+                    # Parse graphstore data
+                    status = r['overall_status']
+                    trial_id = r['trial_id']
+                    primary_condition = r['condition'] if r['condition'] is not None else []
+                    mesh = r['mesh_conditions'] if r['mesh_conditions'] is not None else []
+                    conditions = ";".join(set(primary_condition + mesh))
+                    trial_drugs = r['drugs_in_trial'] if 'drugs_in_trial' in r else None
 
-def __populate_table(model, data: list, desc: str = ""):
-    """Populates the SQLite DB with ClinicalTrial data."""
-    logger.info(f"Importing {desc} data")
-    sess = session()
-    for entry in data:
-        for key, vals in entry.items():
-            if isinstance(vals, list):
-                entry[key] = "|".join(vals)
+                    # Structure data
+                    metadata = {'trial_id': trial_id, 'trial_status': status,
+                                'conditions': conditions, 'drugs_in_trial': trial_drugs}
 
-        row = model(**entry)
-        sess.add(row)
+                    to_import.append(metadata)
 
-    sess.commit()
+        return to_import
+
+    @staticmethod
+    def __populate_table(data: list):
+        """Populates the SQLite DB with ClinicalTrial data."""
+        logger.info(f"Importing Clinical Trial data")
+        for entry in tqdm(data, desc=f"Updating Clinical Trials"):
+            for key, vals in entry.items():
+                if isinstance(vals, list):
+                    entry[key] = "|".join(vals)
+
+            row = Trials(**entry)
+            sess.add(row)
+
+        sess.commit()
