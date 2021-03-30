@@ -64,8 +64,8 @@ class DrugPopulator:
                 drug_entry, trial_table_values = self.__extract_values(drug_entry, "clinical_trials")
                 trial_table_ids = [trial_mapper[trial_id] for trial_id in trial_table_values]
 
-                patent_rows = self.__score_patents(patents) if patents else []
-                product_rows = self.__score_products(products) if products else []
+                patent_rows = self.__parse_patents(patents) if patents else []
+                product_rows = self.__parse_products(products) if products else []
 
                 drug_entry['num_targets'] = len(targets)
                 drug_entry['targets'] = "|".join(targets)
@@ -85,7 +85,7 @@ class DrugPopulator:
         return {r[1]: r[0] for r in trial_rows}
 
     @staticmethod
-    def __score_patents(patents: Dict[str, dict]) -> list:
+    def __parse_patents(patents: Dict[str, dict]) -> list:
         """Parses patent information from graphstore and imports it into SQLite DB at the end."""
         patent_rows = []
         patent_info = patents['patent']
@@ -106,7 +106,7 @@ class DrugPopulator:
         return patent_rows
 
     @staticmethod
-    def __score_products(products_raw: Union[Dict[str, dict], List[Dict[str, dict]]]) -> list:
+    def __parse_products(products_raw: Union[Dict[str, dict], List[Dict[str, dict]]]) -> list:
         """Parses product information from graphstore and imports it into SQLite DB at the end."""
         product_rows = []
 
