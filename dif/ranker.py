@@ -13,7 +13,6 @@ from json.decoder import JSONDecodeError
 from ebel_rest import query as rest_query
 
 from dif.constants import *
-from dif.utils import chunks
 from dif.finder import InteractorFinder
 from dif.defaults import BIOASSAY_CACHE, session, SIMILAR_DISEASES
 from dif.models import Trials, TargetStats, Patents, Products, Drugs
@@ -29,6 +28,7 @@ class Ranker:
     def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1,
                  disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
         """Should be initialized with an InteractorFinder object that has results saved."""
+        self.__session = session()
         self.symbol = symbol
         self.pmods = pmods
         self.disease = disease_keyword
@@ -49,11 +49,20 @@ class Ranker:
         self.drug_scores = self.__generate_ranking_dict()
 
     @property
+    def drug_cache(self) -> dict:
+        cached_drugs = self.__session.query(Drugs.drug_name, Drugs.id, Drugs.num_targets).all()
+        return {x[0]: {'row_id': x[1], 'num_targets': x[2]} for x in cached_drugs}
+
+    @property
+    def relevant_drug_row_ids(self) -> list:
+        return [self.drug_cache[drug_name] for drug_name in self.interactor_drugs]
+
+    @property
     def interactors(self) -> list:
         return self.__finder.unique_interactors()
 
     @property
-    def drugs(self) -> list:
+    def interactor_drugs(self) -> list:
         return self.__finder.unique_drugs()
 
     @property
@@ -86,31 +95,11 @@ class Ranker:
         self.count_bioassays()
         self.count_edges()
 
-    def count_drug_targets(self):
-        """Gathers the number of targets for each drug."""
-        sess = session()
-        logger.info("Counting drug targets")
-        drug_target_counts_raw = {drug_name: dd[TARGET_COUNT] for drug_name, dd in self.drug_metadata.items()}
-        for drug_name, target_info in drug_target_counts_raw.items():
-            if not self.drug_scores[drug_name][TARGET_COUNT]:  # No cached data
-                if target_info:
-                    targets = [symbol for symbol in target_info if symbol is not None]
-                    entry_data = {'drug_name': drug_name, 'num_targets': len(target_info), 'targets': "|".join(targets)}
-
-                else:  # Nothing found in graphstore
-                    entry_data = {'drug_name': drug_name, 'num_targets': -1, 'targets': "N/A"}
-
-                self.drug_scores[drug_name][TARGET_COUNT] = entry_data['num_targets']
-                sess.add(Drugs(**entry_data))
-
-        sess.commit()
-
     def __query_db_pp_drugs(self) -> tuple:
         """Gets currently cached patent and product information and adds points."""
         patents, products, targets = dict(), dict(), dict()
         patent_rows = session().query(Patents).all()
         product_rows = session().query(Products).all()
-        target_rows = session().query(Drugs).all()
 
         for pat in patent_rows:
             patents[pat.drug_name] = {'has_patent': pat.has_patent,
@@ -121,17 +110,8 @@ class Ranker:
         for prod in product_rows:
             products[prod.drug_name] = {'has_generic': prod.has_generic,
                                         'has_approved_generic': prod.has_approved_generic,
-                                        'generic_products': prod.generic_products.split("|") or None}
-
-            if prod.has_generic and prod.has_approved_generic:
-                pts = self.__reward
-            else:
-                pts = self.__penalty
-
-            products[prod.drug_name][POINTS] = pts
-
-        for targ in target_rows:
-            targets[targ.drug_name] = targ.num_targets
+                                        'generic_products': prod.generic_products.split("|") or None,
+                                        POINTS: self.__reward if prod.has_approved_generic else self.__penalty}
 
         return patents, products, targets
 
@@ -156,10 +136,36 @@ class Ranker:
                 missing_pp_db_ids.add(db_id)
 
         # Query graphstore and parse results
-        self.__query_graphstore_ppt(list(missing_pp_db_ids))
         self.score_patents()
         self.score_products()
-        self.count_drug_targets()
+
+    def __compile_patent_information(self) -> dict:
+        """Gathers all requested patent information into drug_metadata."""
+        relevant_patents = self.session.query(Drugs.drug_name, Patents.expired)\
+            .join(Drugs).filter(Patents.drug_id.in_(self.relevant_drug_row_ids)).all()
+
+        patent_mapper = dict()
+        for drug_name, expired in relevant_patents:
+            if drug_name in patent_mapper:
+                patent_mapper[drug_name].append(expired)
+            else:
+                patent_mapper[drug_name] = [expired]
+
+        return {drug_name: all(expired) for drug_name, expired in patent_mapper}
+
+    def __compile_product_information(self) -> dict:
+        """Gathers all requested product information into drug_metadata."""
+        relevant_products = self.session.query(Drugs.drug_name, Products.has_approved_generic)\
+            .join(Drugs).filter(Products.drug_id.in_(self.relevant_drug_row_ids)).all()
+
+        product_mapper = dict()
+        for drug_name, approved_generic in relevant_products:
+            if drug_name in product_mapper:
+                product_mapper[drug_name].append(approved_generic)
+            else:
+                product_mapper[drug_name] = [approved_generic]
+
+        return {drug_name: all(approved_generic) for drug_name, approved_generic in product_mapper}
 
     def __compile_drug_metadata(self) -> dict:
         metadata = self.__generate_ranking_dict()
@@ -184,6 +190,11 @@ class Ranker:
                             'actions': r['drug_rel_actions'].split("|") if r['drug_rel_actions'] else None}
                 metadata[drug_name][INTERACTORS][interactor_name] = rel_data
 
+            metadata[drug_name][TARGET_COUNT] = self.drug_cache[drug_name]['num_targets']
+
+            patent_metadata = self.__compile_patent_information()
+            product_metadata =
+
         return metadata
 
     def __generate_ranking_dict(self) -> dict:
@@ -195,43 +206,17 @@ class Ranker:
                                   CLINICAL_TRIALS: dict(),
                                   TARGET_COUNT: None,
                                   }
-                      for drug_name in self.drugs}
+                      for drug_name in self.interactor_drugs}
         return empty_dict
-
-    def __query_graphstore_ppt(self, db_ids: list):
-        """Used to retrieve patent/product/target information for DrugBank IDs not in DB."""
-        logger.info("Querying graphstore for patent/product/target information")
-        for id_list_chunk in chunks(db_ids, n=400):
-            results = rest_query.sql(PATENTS_PRODUCTS_TARGETS.format(id_list_chunk)).data
-            for hit in results:
-                drug_name = hit.pop('name')
-                if not self.drug_scores[drug_name][PATENTS]:  # Patent score already present
-                    self.drug_metadata[drug_name][PATENTS] = hit['drug_patents']
-
-                if not self.drug_scores[drug_name][PRODUCTS]:
-                    self.drug_metadata[drug_name][PRODUCTS] = hit['drug_products']
-
-                if not self.drug_scores[drug_name][TARGET_COUNT]:
-                    self.drug_metadata[drug_name][TARGET_COUNT] = hit['target_symbols']
 
     def score_patents(self):
         """Parses patent information from graphstore and generates a score. Imports into SQLite DB at the end."""
-        sess = session()
         drugs_and_patents_raw = {drug_name: dd[PATENTS] for drug_name, dd in self.drug_metadata.items()}
         logger.info("Scoring patent information")
         for drug_name, patent_info in drugs_and_patents_raw.items():
             patent_numbers = []
             expired_list = []
             if not self.drug_scores[drug_name][PATENTS]:  # No cached data
-                if patent_info:
-                    patent_list = patent_info['patent']
-
-                    if not isinstance(patent_info['patent'], list):
-                        patent_list = [patent_info['patent']]
-
-                    for patent in patent_list:
-                        patent_numbers.append(patent['number'])
-                        expired_list.append(datetime.today() > datetime.strptime(patent['expires'], "%Y-%m-%d"))
 
                     all_expired = all(expired_list)
                     import_data = {'has_patent': bool(patent_numbers),
@@ -240,64 +225,23 @@ class Ranker:
                                    POINTS: self.__reward if all_expired else self.__penalty}
 
                 else:
-                    import_data = {'has_patent': False, 'expired': False, 'patent_numbers': "N/A", POINTS: self.__penalty}
+                    import_data = {'has_patent': False, 'expired': False,
+                                   'patent_numbers': "N/A", POINTS: self.__penalty}
 
                 self.drug_scores[drug_name][PATENTS] = import_data
-                import_data.pop(POINTS)
-                import_data['drug_name'] = drug_name
-                sess.add(Patents(**import_data))
-
-        sess.commit()
+        # TODO finish
 
     def score_products(self):
         """Gives scores to drugs in the hit list based on whether they have an approved generic version."""
-        sess = session()
         drugs_and_product_info = {drug_name: dd[PRODUCTS] for drug_name, dd in self.drug_metadata.items()}
         logger.info("Scoring product information")
         for drug_name, product_info in drugs_and_product_info.items():
             if not self.drug_scores[drug_name][PRODUCTS]:  # No cached data
-                has_generic = False
-                has_approved_generic = False
-                generic_info = dict()
-
-                if product_info is None or not product_info:
+                if has_generic and has_approved_generic:
+                    pts = self.__reward
+                else:
                     pts = self.__penalty
-
-                else:
-                    if not isinstance(product_info, list):
-                        product_info = [product_info]
-
-                    for product in product_info:
-                        if product['generic'] == 'true':
-                            has_generic = True
-                            is_approved = True if product['approved'] == 'true' else False
-                            product_data = {'is_approved': is_approved}
-                            if is_approved:
-                                has_approved_generic = True
-                            generic_info[product['name']] = product_data
-
-                    if has_generic and has_approved_generic:
-                        pts = self.__reward
-                    else:
-                        pts = self.__penalty
-
-                if not generic_info:
-                    generic_info = "N/A"
-
-                else:
-                    generic_info = "|".join(generic_info.keys())
-
-                import_metadata = {'has_generic': has_generic,
-                                   'has_approved_generic': has_approved_generic,
-                                   'generic_products': generic_info,
-                                   'drug_name': drug_name}
-                sess.add(Products(**import_metadata))
-
-                import_metadata.pop('drug_name')
-                import_metadata[POINTS] = pts
-                self.drug_scores[drug_name][PRODUCTS] = import_metadata
-
-        sess.commit()
+        # TODO finish
 
     def score_homologs(self, tc_json: str, db_id_mapper: dict, tc_threshold: int = 0.95):
         """Produces a dictionary detailing structural homologs of every drugbank drug."""
