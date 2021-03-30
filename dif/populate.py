@@ -26,6 +26,8 @@ class DrugPopulator:
 
     def __init__(self):
         sess.query(Drugs).delete()
+        sess.query(Patents).delete()
+        sess.query(Products).delete()
         self.__num_drugs_in_graphstore = rest_query.sql(DRUG_COUNT).data[0]['num_drugs']
 
     def __collect_drugs_from_graphstore(self, chunk_size: int = 10000) -> list:
@@ -114,23 +116,25 @@ class DrugPopulator:
         if not isinstance(products_raw, list):
             products_raw = [products_raw]
 
-        for product in products_raw:
-            has_generic = False
-            is_approved = False
-            has_approved_generic = False
-            product_name = None
+        labelled_products = {product['name']: {'has_generic': False,
+                                               'is_approved': False,
+                                               'has_approved_generic': False}
+                             for product in products_raw}
+
+        for product in products_raw:  # Usually several disrtibutors for the same drug
+            product_name = product['name']
+
+            if product['approved'] == 'true':
+                labelled_products[product_name]['is_approved'] = True
 
             if product['generic'] == 'true':
-                has_generic = True
-                is_approved = True if product['approved'] == 'true' else False
-                if is_approved:
-                    has_approved_generic = True
-                product_name = product['name']
+                labelled_products[product_name]['has_generic'] = True
 
-            import_metadata = {'has_generic': has_generic,
-                               'has_approved_generic': has_approved_generic,
-                               'product_name': product_name,
-                               'is_approved': is_approved}
+            if labelled_products[product_name]['is_approved'] and labelled_products[product_name]['has_generic']:
+                labelled_products[product_name]['has_approved_generic'] = True
+
+        for product_name, metadata in labelled_products.items():
+            import_metadata = {'product_name': product_name, **metadata}
 
             new_product = Products(**import_metadata)
             product_rows.append(new_product)
@@ -197,7 +201,7 @@ class ClinicalTrialPopulator:
     def __populate_table(data: list):
         """Populates the SQLite DB with ClinicalTrial data."""
         logger.info(f"Importing Clinical Trial data")
-        for entry in tqdm(data, desc=f"Updating Clinical Trials"):
+        for entry in tqdm(data, desc=f"Parsing and importing clinical trials data"):
             for key, vals in entry.items():
                 if isinstance(vals, list):
                     entry[key] = "|".join(vals)
