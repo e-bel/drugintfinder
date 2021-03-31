@@ -9,8 +9,8 @@ from dif.defaults import engine
 Base = declarative_base()
 ct_drug_association_table = Table('ct_drug_association',
                                   Base.metadata,
-                                  Column('ct_id', Integer, ForeignKey(f'trials.id')),
-                                  Column('drug_id', Integer, ForeignKey(f'drugs.id'))
+                                  Column('ct_id', Integer, ForeignKey('trials.id')),
+                                  Column('drug_id', Integer, ForeignKey('drugs.id'))
                                   )
 
 
@@ -87,7 +87,7 @@ class Trials(MetaClass, Base):
     __tablename__ = 'trials'
     id = Column(Integer, primary_key=True)
 
-    trial_id = Column(VARCHAR(255), index=True)
+    trial_id = Column(VARCHAR(255), index=True, unique=True)
     trial_status = Column(VARCHAR(255))
     conditions = Column(VARCHAR(255))
     drugs_in_trial = Column(VARCHAR(255))
@@ -108,7 +108,7 @@ class Drugs(MetaClass, Base):
     id = Column(Integer, primary_key=True)
 
     drug_name = Column(VARCHAR(255), index=True)
-    drugbank_id = Column(VARCHAR(255), index=True)
+    drugbank_id = Column(VARCHAR(255), index=True, unique=True)
     num_targets = Column(INTEGER)
     targets = Column(VARCHAR(255))
     patents = relationship("Patents")

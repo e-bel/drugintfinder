@@ -52,6 +52,18 @@ class DrugPopulator:
         return value_dict, values
 
     def populate(self):
+        """Populates the SQLite DB with Drug metadata."""
+        logger.info("Collecting Drug information")
+        update = self.__update_needed()
+        if update:
+            self.__parse__and_import_drug_metadata()
+
+    def __update_needed(self) -> bool:
+        """Checks if drug data is missing."""
+        db_entries = sess.query(func.count(Drugs.id)).first()[0]
+        return False if db_entries == self.__num_drugs_in_graphstore else True
+
+    def __parse__and_import_drug_metadata(self):
         drug_generator = self.__collect_drugs_from_graphstore()
         logger.info("Parsing and importing drug information from graphstore")
         trial_mapper = self.__get_clinical_trial_ids()
@@ -62,18 +74,18 @@ class DrugPopulator:
                 drug_entry, targets = self.__extract_values(drug_entry, "target_symbols")
 
                 drug_entry, trial_table_values = self.__extract_values(drug_entry, "clinical_trials")
-                trial_table_ids = [trial_mapper[trial_id] for trial_id in trial_table_values]
+                trial_rows = [trial_mapper[trial_id] for trial_id in trial_table_values]
 
                 patent_rows = self.__parse_patents(patents) if patents else []
                 product_rows = self.__parse_products(products) if products else []
 
                 drug_entry['num_targets'] = len(targets)
                 drug_entry['targets'] = "|".join(targets)
-                drug_entry['clinical_trials'] = trial_table_ids
 
                 new_drug = Drugs(**drug_entry)
                 new_drug.patents = patent_rows
                 new_drug.products = product_rows
+                new_drug.clinical_trials = trial_rows
                 sess.add(new_drug)
 
         sess.commit()

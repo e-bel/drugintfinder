@@ -44,25 +44,26 @@ class Ranker:
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
+        self.__cached_drugs = self.__session.query(Drugs.drug_name, Drugs.id, Drugs.num_targets)\
+            .filter(Drugs.drug_name.in_(self.interactor_drugs)).all()
         self.drug_scores = self.__generate_ranking_dict()
         self.drug_metadata = self.__compile_drug_metadata()
 
     @property
-    def drug_cache(self) -> dict:
-        cached_drugs = self.__session.query(Drugs.drug_name, Drugs.id, Drugs.num_targets).all()
-        return {x[0]: {'row_id': x[1], 'num_targets': x[2]} for x in cached_drugs}
+    def target_count_mapper(self) -> dict:
+        return {x[0]: x[2] for x in self.__cached_drugs}
 
     @property
     def relevant_drug_row_ids(self) -> list:
-        return [self.drug_cache[drug_name]['row_id'] for drug_name in self.interactor_drugs]
+        return [x[1] for x in self.__cached_drugs]
 
     @property
     def interactors(self) -> list:
-        return self.__finder.unique_interactors()
+        return list(self.__finder.unique_interactors())
 
     @property
     def interactor_drugs(self) -> list:
-        return self.__finder.unique_drugs()
+        return list(self.__finder.unique_drugs())
 
     @property
     def unique_drug_target_combos(self) -> set:
@@ -156,14 +157,14 @@ class Ranker:
             else:
                 product_mapper[drug_name] = [approved_generic]
 
-        for drug_name in self.drug_scores.keys():
+        for drug_name in tqdm(self.drug_scores.keys(), desc="Scoring patents and products"):
             all_patents_expired = all(patent_mapper[drug_name]) if drug_name in patent_mapper else False
             approved_generic_available = any(product_mapper[drug_name]) if drug_name in product_mapper else False
             self.drug_scores[drug_name][PATENTS] = {'expired': all_patents_expired,
                                                     POINTS: self.__reward if all_patents_expired else self.__penalty}
             self.drug_scores[drug_name][PRODUCTS] = {'has_approved_generic': approved_generic_available,
                                                      POINTS: self.__reward if approved_generic_available else self.__penalty}
-            self.drug_scores[drug_name][TARGET_COUNT] = self.drug_cache[drug_name]['num_targets']
+            self.drug_scores[drug_name][TARGET_COUNT] = self.target_count_mapper[drug_name]
 
     def score_homologs(self, tc_json: str, db_id_mapper: dict, tc_threshold: int = 0.95):
         """Produces a dictionary detailing structural homologs of every drugbank drug."""
@@ -245,7 +246,7 @@ class Ranker:
             Keys are drug names, values are point values.
         """
         logger.info("Scoring drug relationships")
-        for drug_name, metadata in self.drug_metadata.items():
+        for drug_name, metadata in tqdm(self.drug_metadata.items(), desc="Scoring drug rels"):
             for target_name, ti_metadata in metadata[INTERACTORS].items():
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
@@ -288,6 +289,7 @@ class Ranker:
 
     def __compile_ct_metadata(self) -> dict:
         """Compiles the Clinical Trial data from the DB."""
+        # TODO Improve!!
         relevant_cts = self.__session.query(Trials.trial_id, Trials.conditions, Trials.trial_status, Drugs.drug_name) \
             .filter(Drugs.id.in_(self.relevant_drug_row_ids)).all()
 
@@ -310,7 +312,7 @@ class Ranker:
         logger.info("Scoring Clinical Trial data")
         ct_mapper = self.__compile_ct_metadata()
 
-        for drug_name, ct_metadata in ct_mapper.items():
+        for drug_name, ct_metadata in tqdm(ct_mapper.items(), desc="Scoring clinical trials"):
             pts = self.__reward  # Default to reward unless changed
 
             self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS] = dict()
@@ -455,7 +457,7 @@ class Ranker:
 
             # Drug metadata
             ongoing_patent = "Yes" if self.drug_scores[drug_name][PATENTS]['expired'] is True else "No"
-            has_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_generic'] is True else "No"
+            has_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_approved_generic'] is True else "No"
             target_count = self.drug_scores[drug_name][TARGET_COUNT]
             target_count_entry = "N/A" if target_count == -1 else target_count
 

@@ -111,11 +111,9 @@ class InteractorFinder:
             if df_results is not None:
                 self.results = df_results[cols]
                 self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
-                self.results.index += 1
-                self.results.index.rename('id', inplace=True)
 
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
-                self.results.to_sql(table, if_exists="append", con=engine)
+                self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
     def druggable_interactors(self, print_sql: bool = False):
         """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from
@@ -175,12 +173,10 @@ class InteractorFinder:
             if pure_results is not None or capsule_results is not None:  # Only need one to have results
                 df_concat = pd.concat([pure_results, capsule_results], axis=0)
                 self.results = df_concat[cols]
-                self.results.index += 1
-                self.results.index.rename('id', inplace=True)
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
-                self.results.to_sql(table, if_exists="replace", con=engine)
+                self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
     def export(self, file_path: str):
         """Exports results dataframe to path."""
