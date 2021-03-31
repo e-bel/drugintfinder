@@ -66,7 +66,6 @@ class DrugPopulator:
     def __parse__and_import_drug_metadata(self):
         drug_generator = self.__collect_drugs_from_graphstore()
         logger.info("Parsing and importing drug information from graphstore")
-        trial_mapper = self.__get_clinical_trial_ids()
         for drug_data_chunk in drug_generator:
             for drug_entry in tqdm(drug_data_chunk, desc="Parsing and importing drug data"):
                 patents = drug_entry.pop("drug_patents")
@@ -74,18 +73,17 @@ class DrugPopulator:
                 drug_entry, targets = self.__extract_values(drug_entry, "target_symbols")
 
                 drug_entry, trial_table_values = self.__extract_values(drug_entry, "clinical_trials")
-                trial_rows = [trial_mapper[trial_id] for trial_id in trial_table_values]
 
                 patent_rows = self.__parse_patents(patents) if patents else []
                 product_rows = self.__parse_products(products) if products else []
 
                 drug_entry['num_targets'] = len(targets)
                 drug_entry['targets'] = "|".join(targets)
+                drug_entry['clinical_trials'] = "|".join(trial_table_values)
 
                 new_drug = Drugs(**drug_entry)
                 new_drug.patents = patent_rows
                 new_drug.products = product_rows
-                new_drug.clinical_trials = trial_rows
                 sess.add(new_drug)
 
         sess.commit()

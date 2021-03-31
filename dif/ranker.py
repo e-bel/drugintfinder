@@ -44,18 +44,28 @@ class Ranker:
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
-        self.__cached_drugs = self.__session.query(Drugs.drug_name, Drugs.id, Drugs.num_targets)\
+        self.__cached_drugs = self.__session.query(Drugs.id, Drugs.drug_name, Drugs.num_targets, Drugs.clinical_trials)\
             .filter(Drugs.drug_name.in_(self.interactor_drugs)).all()
+
+        target_mapper, drug_ids, cts = self.__parse_cached_data()
+        self.target_count_mapper = target_mapper
+        self.relevant_drug_row_ids = drug_ids
+        self.relevant_cts = cts
+
         self.drug_scores = self.__generate_ranking_dict()
         self.drug_metadata = self.__compile_drug_metadata()
 
-    @property
-    def target_count_mapper(self) -> dict:
-        return {x[0]: x[2] for x in self.__cached_drugs}
+    def __parse_cached_data(self) -> tuple:
+        target_mapper = dict()
+        drug_ids = []
+        cts = dict()
+        for drug_entry in self.__cached_drugs:
+            drug_id, drug_name, targets, cts_str = drug_entry
+            target_mapper[drug_name] = targets
+            drug_ids.append(drug_id)
+            cts[drug_name] = [trial_id for trial_id in cts_str.split("|") if trial_id]
 
-    @property
-    def relevant_drug_row_ids(self) -> list:
-        return [x[1] for x in self.__cached_drugs]
+        return target_mapper, drug_ids, cts
 
     @property
     def interactors(self) -> list:
@@ -87,7 +97,7 @@ class Ranker:
         """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
         self.score_drug_relationships()
         self.score_patents_and_products()
-        self.score_cts()
+        # self.score_cts()
         # self.score_homologs()
 
     def score_interactors(self):
@@ -289,19 +299,25 @@ class Ranker:
 
     def __compile_ct_metadata(self) -> dict:
         """Compiles the Clinical Trial data from the DB."""
-        # TODO Improve!!
-        relevant_cts = self.__session.query(Trials.trial_id, Trials.conditions, Trials.trial_status, Drugs.drug_name) \
-            .filter(Drugs.id.in_(self.relevant_drug_row_ids)).all()
-
         ct_mapper = dict()
-        for row in relevant_cts:
-            trial_id, conditions, trial_status, drug_name = row
-            metadata = {'conditions': conditions.split(";"), 'trial_status': trial_status}
-            if drug_name in ct_mapper:
-                ct_mapper[drug_name][trial_id] = metadata
+        cached_ct_data = dict()
+        for drug_name, trial_ids in tqdm(self.relevant_cts.items(), desc="Parsing CT data"):
+            for trial_id in trial_ids:
+                if trial_id not in cached_ct_data:
+                    conditions, trial_status = self.__session.query(Trials.conditions, Trials.trial_status)\
+                        .filter(Trials.trial_id == trial_id).first()
 
-            else:
-                ct_mapper[drug_name] = {trial_id: metadata}
+                    metadata = {'conditions': conditions.split(";"), 'trial_status': trial_status}
+                    cached_ct_data[trial_id] = metadata
+
+                else:
+                    metadata = cached_ct_data[trial_id]
+
+                if drug_name in ct_mapper:
+                    ct_mapper[drug_name][trial_id] = metadata
+
+                else:
+                    ct_mapper[drug_name] = {trial_id: metadata}
 
         return ct_mapper
 

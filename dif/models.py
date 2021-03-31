@@ -1,17 +1,12 @@
 """Table definitions for SQLite DB."""
 
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN, Table, ForeignKey
 
 from dif.defaults import engine
 
 Base = declarative_base()
-ct_drug_association_table = Table('ct_drug_association',
-                                  Base.metadata,
-                                  Column('ct_id', Integer, ForeignKey('trials.id')),
-                                  Column('drug_id', Integer, ForeignKey('drugs.id'))
-                                  )
 
 
 class MetaClass:
@@ -85,7 +80,7 @@ class Products(MetaClass, Base):
 
 class Trials(MetaClass, Base):
     __tablename__ = 'trials'
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
 
     trial_id = Column(VARCHAR(255), index=True, unique=True)
     trial_status = Column(VARCHAR(255))
@@ -105,7 +100,7 @@ class TargetStats(MetaClass, Base):
 
 class Drugs(MetaClass, Base):
     __tablename__ = 'drugs'
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
 
     drug_name = Column(VARCHAR(255), index=True)
     drugbank_id = Column(VARCHAR(255), index=True, unique=True)
@@ -113,9 +108,7 @@ class Drugs(MetaClass, Base):
     targets = Column(VARCHAR(255))
     patents = relationship("Patents")
     products = relationship("Products")
-    clinical_trials = relationship("Trials",
-                                   secondary=ct_drug_association_table,
-                                   backref="drugs")
+    clinical_trials = Column(VARCHAR(255))
 
 
 Base.metadata.create_all(engine)
