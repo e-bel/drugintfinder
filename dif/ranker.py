@@ -167,7 +167,7 @@ class Ranker:
             else:
                 product_mapper[drug_name] = [approved_generic]
 
-        for drug_name in tqdm(self.drug_scores.keys(), desc="Scoring patents and products"):
+        for drug_name in self.drug_scores.keys():
             all_patents_expired = all(patent_mapper[drug_name]) if drug_name in patent_mapper else False
             approved_generic_available = any(product_mapper[drug_name]) if drug_name in product_mapper else False
             self.drug_scores[drug_name][PATENTS] = {'expired': all_patents_expired,
@@ -256,7 +256,7 @@ class Ranker:
             Keys are drug names, values are point values.
         """
         logger.info("Scoring drug relationships")
-        for drug_name, metadata in tqdm(self.drug_metadata.items(), desc="Scoring drug rels"):
+        for drug_name, metadata in self.drug_metadata.items():
             for target_name, ti_metadata in metadata[INTERACTORS].items():
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
@@ -486,17 +486,18 @@ class Ranker:
     def summarize(self) -> pd.DataFrame:
         rows = []
         for drug_name, symbol in self.unique_drug_target_combos:
+            drug_entry = self.drug_scores[drug_name]
 
-            synergizes = "Yes" if self.drug_scores[drug_name][INTERACTORS][symbol][SYNERGY] else "No"
+            synergizes = "Yes" if drug_entry[INTERACTORS][symbol][SYNERGY] else "No"
 
             # Interactor metadata
             num_bioassays = self.interactor_metadata[symbol]['bioassays']
             num_total_edges = self.interactor_metadata[symbol]['edges']['both_count']
 
             # Drug metadata
-            ongoing_patent = "Yes" if self.drug_scores[drug_name][PATENTS]['expired'] is True else "No"
-            has_generic = "Yes" if self.drug_scores[drug_name][PRODUCTS]['has_approved_generic'] is True else "No"
-            target_count = self.drug_scores[drug_name][TARGET_COUNT]
+            ongoing_patent = "Yes" if drug_entry[PATENTS]['expired'] is True else "No"
+            has_generic = "Yes" if drug_entry[PRODUCTS]['has_approved_generic'] is True else "No"
+            target_count = drug_entry[TARGET_COUNT]
             target_count_entry = "N/A" if target_count == -1 else target_count
 
             # Compile
