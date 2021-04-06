@@ -97,7 +97,7 @@ class Ranker:
         """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
         self.score_drug_relationships()
         self.score_patents_and_products()
-        # self.score_cts()
+        self.score_cts()
         # self.score_homologs()
 
     def score_interactors(self):
@@ -297,21 +297,43 @@ class Ranker:
 
                 self.drug_scores[drug_name][INTERACTORS][target_name][POINTS] = pts
 
+    @staticmethod
+    def __chunk_cts(trial_id_list: list, chunk_size: int = 100) -> list:
+        """Creates a generator of trial ID lists."""
+        total_num_chunks = (len(trial_id_list) // chunk_size) + 1
+        chunk_index = 0
+        while chunk_index < total_num_chunks:
+            start = chunk_index * chunk_size
+            stop = (chunk_index + 1) * chunk_size
+            yield trial_id_list[start:stop]
+            chunk_index += 1
+
+    def __build_ct_cache(self) -> dict:
+        """Builds a dictionary of metadata for each clinical trial relevant to the query."""
+        cached_ct_data = dict()
+        relevant_trial_ids = list({trial_id for id_list in self.relevant_cts.values() for trial_id in id_list})
+
+        trial_id_chunks = self.__chunk_cts(relevant_trial_ids, chunk_size=400)
+        for id_batch in trial_id_chunks:
+            ct_results = self.__session.query(Trials.trial_id, Trials.conditions, Trials.trial_status)\
+                .filter(Trials.trial_id.in_(id_batch)).all()
+
+            for ct_entry in ct_results:
+                trial_id, conditions, trial_status = ct_entry
+
+                metadata = {'conditions': conditions.split(";"), 'trial_status': trial_status}
+                cached_ct_data[trial_id] = metadata
+
+        return cached_ct_data
+
     def __compile_ct_metadata(self) -> dict:
         """Compiles the Clinical Trial data from the DB."""
         ct_mapper = dict()
-        cached_ct_data = dict()
-        for drug_name, trial_ids in tqdm(self.relevant_cts.items(), desc="Parsing CT data"):
+        cached_ct_data = self.__build_ct_cache()
+
+        for drug_name, trial_ids in self.relevant_cts.items():
             for trial_id in trial_ids:
-                if trial_id not in cached_ct_data:
-                    conditions, trial_status = self.__session.query(Trials.conditions, Trials.trial_status)\
-                        .filter(Trials.trial_id == trial_id).first()
-
-                    metadata = {'conditions': conditions.split(";"), 'trial_status': trial_status}
-                    cached_ct_data[trial_id] = metadata
-
-                else:
-                    metadata = cached_ct_data[trial_id]
+                metadata = cached_ct_data[trial_id]
 
                 if drug_name in ct_mapper:
                     ct_mapper[drug_name][trial_id] = metadata
@@ -328,7 +350,7 @@ class Ranker:
         logger.info("Scoring Clinical Trial data")
         ct_mapper = self.__compile_ct_metadata()
 
-        for drug_name, ct_metadata in tqdm(ct_mapper.items(), desc="Scoring clinical trials"):
+        for drug_name, ct_metadata in ct_mapper.items():
             pts = self.__reward  # Default to reward unless changed
 
             self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS] = dict()
