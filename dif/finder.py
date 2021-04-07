@@ -63,9 +63,7 @@ class InteractorFinder:
 
         return filtered_df if not filtered_df.empty else None
 
-    def find_interactors(self,
-                         target_type: str = 'protein',
-                         print_sql: bool = False):
+    def find_interactors(self, target_type: str = 'protein', print_sql: bool = False) -> pd.DataFrame:
         """Returns interactors of the target.
 
         Parameters
@@ -115,7 +113,9 @@ class InteractorFinder:
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
-    def druggable_interactors(self, print_sql: bool = False):
+        return self.results
+
+    def druggable_interactors(self, print_sql: bool = False) -> pd.DataFrame:
         """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from
         `find_interactors`.
 
@@ -177,6 +177,8 @@ class InteractorFinder:
 
                 logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
+
+        return self.results
 
     def export(self, file_path: str):
         """Exports results dataframe to path."""
