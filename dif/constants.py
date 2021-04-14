@@ -14,6 +14,11 @@ CLINICAL_TRIALS = 'clinical_trials'
 TIC = 'target_interactor_contradiction'
 DAC = 'drug_action_contradiction'
 
+## MAPPER
+POSREG = 'positive_regulator'
+NEGREG = 'negative_regulator'
+NEUTRAL = 'neutral'
+
 # API
 PUBCHEM_BIOASSAY_API = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/assay/target/accession/{}/aids/TXT"
 
@@ -63,28 +68,32 @@ CT_MAPPER = {
     ]
 }
 
-ACTION_MAPPER = {'activator': 'positive_regulator',
-                 'aggregation inhibitor': 'negative_regulator',
-                 'agonist': 'positive_regulator',
-                 'allosteric modulator': 'neutral',  # Can't tell if it's pos or neg
-                 'antagonist': 'negative_regulator',
-                 'antibody': 'neutral',  # Can't tell if it's pos or neg
-                 'binder': 'neutral',  # Can't tell if it's pos or neg
-                 'cofactor': 'positive_regulator',  # Cofactor = component for activity
-                 'inducer': 'positive_regulator',
-                 'inhibitor': 'negative_regulator',
-                 'ligand': 'neutral',  # Can't tell if it's agonist or anatagnoist
-                 'modulator': 'neutral',  # Can't tell if it's pos or neg
-                 'multitarget': 'negative_regulator',  # 'multitarget' only used for Dasatinib which is an inhibitor
-                 'neutralizer': 'negative_regulator',
-                 'other/unknown': 'neutral',
-                 'partial agonist': 'positive_regulator',
-                 'potentiator': 'negative_regulator',  # 'potentiator' only used for Pimecrolimus which is an inhibitor
-                 'stabilization': 'positive_regulator',
-                 'stimulator': 'positive_regulator',
-                 'substrate': 'neutral',  # Can't tell if it's pos or neg
-                 'suppressor': 'negative_regulator',
-                 'weak inhibitor': 'negative_regulator',
+ACTION_MAPPER = {'activator': POSREG,
+                 'aggregation inhibitor': NEGREG,
+                 'agonist': POSREG,
+                 'allosteric modulator': NEUTRAL,  # Can't tell if it's pos or neg
+                 'antagonist': NEGREG,
+                 'antibody': NEUTRAL,  # Can't tell if it's pos or neg
+                 'binder': NEUTRAL,  # Can't tell if it's pos or neg
+                 'binding': NEUTRAL,
+                 'chaperone': POSREG,
+                 'cofactor': POSREG,  # Cofactor = component for activity
+                 'inducer': POSREG,
+                 'inhibitor': NEGREG,
+                 'ligand': NEUTRAL,  # Can't tell if it's agonist or anatagnoist
+                 'modulator': NEUTRAL,  # Can't tell if it's pos or neg
+                 'multitarget': NEGREG,  # 'multitarget' only used for Dasatinib which is an inhibitor
+                 'neutralizer': NEGREG,
+                 'other': NEUTRAL,
+                 'other/unknown': NEUTRAL,
+                 'partial agonist': POSREG,
+                 'potentiator': NEGREG,  # 'potentiator' only used for Pimecrolimus which is an inhibitor
+                 'stabilization': POSREG,
+                 'stimulator': POSREG,
+                 'substrate': NEUTRAL,  # Can't tell if it's pos or neg
+                 'suppressor': NEGREG,
+                 'unknown': NEUTRAL,
+                 'weak inhibitor': NEGREG,
                  }
 
 ###########

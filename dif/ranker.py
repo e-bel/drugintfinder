@@ -214,32 +214,31 @@ class Ranker:
     def __check_drug_action_contradictions(drug_actions: set) -> bool:
         """Checks if both 'positive_regulator' and 'negative_regulator' in the set of mapped drug/target relations."""
         contradiction = False
-        if 'positive_regulator' and 'negative_regulator' in drug_actions:
+        if POSREG and NEGREG in drug_actions:
             contradiction = True
         return contradiction
 
     @staticmethod
     def __check_rel_synergy(drug_actions: set, int_rel: set) -> bool:
         """Returns True is drug/target relation and interactor/pTAU relation results in decrease of pTAU else False."""
-        pos_drug, neg_drug = "positive_regulator", "negative_regulator"
         pos_int_rel = ['increases', 'directly_increases']
         neg_int_rel = ['decreases', 'directly_decreases']
 
         # TODO make generic so it works for any target
         # drug -inhibits-> interactor -decreases-> pTAU: BAD
-        if neg_drug in drug_actions and any(rel in int_rel for rel in neg_int_rel):
+        if NEGREG in drug_actions and any(rel in int_rel for rel in neg_int_rel):
             return False
 
         # drug -inhibits-> interactor -increases-> pTAU: GOOD
-        elif neg_drug in drug_actions and any(rel in int_rel for rel in pos_int_rel):
+        elif NEGREG in drug_actions and any(rel in int_rel for rel in pos_int_rel):
             return True
 
         # drug -activates-> interactor -increases-> pTAU: BAD
-        elif pos_drug in drug_actions and any(rel in int_rel for rel in pos_int_rel):
+        elif POSREG in drug_actions and any(rel in int_rel for rel in pos_int_rel):
             return False
 
         # drug -activates-> interactor -decreases-> pTAU: GOOD
-        elif pos_drug in drug_actions and any(rel in int_rel for rel in neg_int_rel):
+        elif POSREG in drug_actions and any(rel in int_rel for rel in neg_int_rel):
             return True
 
         else:  # drug_actions = 'neutral'
@@ -466,8 +465,8 @@ class Ranker:
 
             self.__session.commit()
 
-        for symbol, bioassay_count in counts.items():
-            self.interactor_metadata[symbol]['bioassays'] = bioassay_count
+        for symbol in self.interactor_metadata.keys():
+            self.interactor_metadata[symbol]['bioassays'] = counts[symbol]  # Number of assays
 
         return counts
 

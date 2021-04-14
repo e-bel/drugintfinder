@@ -171,7 +171,7 @@ class InteractorFinder:
             capsule_results = self.__query_graphstore(sql=formatted_capsule_sql, print_sql=print_sql)
 
             if pure_results is not None or capsule_results is not None:  # Only need one to have results
-                df_concat = pd.concat([pure_results, capsule_results], axis=0)
+                df_concat = pd.concat([pure_results, capsule_results], axis=0).reindex(columns=cols)
                 self.results = df_concat[cols]
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
