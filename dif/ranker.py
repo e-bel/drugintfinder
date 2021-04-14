@@ -461,6 +461,11 @@ class Ranker:
                     number_assays = len(resp.text.split("\n")) - 1  # Remove header
                     counts[symbol] = number_assays
 
+                    row = BioAssays(target=symbol, num_assays=number_assays)
+                    self.__session.add(row)
+
+            self.__session.commit()
+
         for symbol, bioassay_count in counts.items():
             self.interactor_metadata[symbol]['bioassays'] = bioassay_count
 

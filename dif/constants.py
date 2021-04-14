@@ -83,6 +83,7 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
                  'stabilization': 'positive_regulator',
                  'stimulator': 'positive_regulator',
                  'substrate': 'neutral',  # Can't tell if it's pos or neg
+                 'suppressor': 'negative_regulator',
                  'weak inhibitor': 'negative_regulator',
                  }
 
