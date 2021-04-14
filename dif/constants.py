@@ -81,6 +81,7 @@ ACTION_MAPPER = {'activator': 'positive_regulator',
                  'partial agonist': 'positive_regulator',
                  'potentiator': 'negative_regulator',  # 'potentiator' only used for Pimecrolimus which is an inhibitor
                  'stabilization': 'positive_regulator',
+                 'stimulator': 'positive_regulator',
                  'substrate': 'neutral',  # Can't tell if it's pos or neg
                  'weak inhibitor': 'negative_regulator',
                  }
