@@ -111,4 +111,12 @@ class Drugs(MetaClass, Base):
     clinical_trials = Column(VARCHAR(255))
 
 
+class BioAssays(MetaClass, Base):
+    __tablename__ = 'bioassays'
+    id = Column(Integer, primary_key=True)
+
+    target = Column(VARCHAR(255), index=True, unique=True)
+    num_assays = Column(INTEGER)
+
+
 Base.metadata.create_all(engine)

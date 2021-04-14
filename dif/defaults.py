@@ -5,8 +5,8 @@ import logging
 
 from pathlib import Path
 from ebel_rest import connect
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine, MetaData
 from sqlalchemy_utils import create_database, database_exists
 
 
@@ -32,9 +32,6 @@ CACHE_DIR = os.path.join(PROJECT_DIR, "cache")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
-
-# Cached information
-BIOASSAY_CACHE = os.path.join(CACHE_DIR, "bioassays.json")
 
 # Logging Configuration
 LOG_FILE_PATH = os.path.join(LOG_DIR, "dif.log")

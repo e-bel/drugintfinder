@@ -1,6 +1,5 @@
 """Calculate the ranking of the hits."""
 
-import os
 import json
 import requests
 import logging
@@ -8,13 +7,12 @@ import pandas as pd
 
 from tqdm import tqdm
 from typing import Optional
-from json.decoder import JSONDecodeError
 from ebel_rest import query as rest_query
 
 from dif.constants import *
 from dif.finder import InteractorFinder
-from dif.defaults import BIOASSAY_CACHE, session, SIMILAR_DISEASES
-from dif.models import Trials, TargetStats, Patents, Products, Drugs
+from dif.defaults import session, SIMILAR_DISEASES
+from dif.models import Trials, TargetStats, Patents, Products, Drugs, BioAssays
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -174,7 +172,12 @@ class Ranker:
                                                     POINTS: self.__reward if all_patents_expired else self.__penalty}
             self.drug_scores[drug_name][PRODUCTS] = {'has_approved_generic': approved_generic_available,
                                                      POINTS: self.__reward if approved_generic_available else self.__penalty}
-            self.drug_scores[drug_name][TARGET_COUNT] = self.target_count_mapper[drug_name]
+
+            try:
+                self.drug_scores[drug_name][TARGET_COUNT] = self.target_count_mapper[drug_name]
+
+            except KeyError:  # If drug not in cache then probably forgot to populate
+                logger.error(f"{drug_name} not found in cache. Try populate.populate() again.")
 
     def score_homologs(self, tc_json: str, db_id_mapper: dict, tc_threshold: int = 0.95):
         """Produces a dictionary detailing structural homologs of every drugbank drug."""
@@ -429,24 +432,10 @@ class Ranker:
 
         return edge_counts
 
-    @staticmethod
-    def __check_bioassay_cache() -> dict:
-        """Checks if BioAssay cache file present. If not, creates it. Returns current content."""
-        # TODO: Move to SQLite DB
-        if not os.path.exists(BIOASSAY_CACHE):
-            open(BIOASSAY_CACHE, 'w').close()
-            counts = dict()
-
-        else:
-            try:
-                with open(BIOASSAY_CACHE, 'r') as bioassay_file:
-                    counts = json.load(bioassay_file)
-
-            except JSONDecodeError:  # File empty
-                counts = dict()
-                logger.info("Created new BioAssay cache file.")
-
-        return counts
+    def __get_bioassay_cache(self) -> dict:
+        """Gets BioAssay counts in DB and returns a dict with protein target symbol as key and bioassay count as val."""
+        bioassay_counts = self.__session.query(BioAssays.target, BioAssays.num_assays).all()
+        return {r[0]: r[1] for r in bioassay_counts}
 
     def count_bioassays(self) -> dict:
         """Queries the PubChem API to obtain the number of available BioAssays for each gene symbol in the list.
@@ -456,13 +445,11 @@ class Ranker:
         dict
             Key is the gene symbol, value is the number of BioAssays available.
         """
-        counts = self.__check_bioassay_cache()
-        symbols_missing_data = set(self.interactors) - set(counts.keys())
+        counts = self.__get_bioassay_cache()
+        symbols_missing_data = set(self.interactors) - set(counts.keys())  # Create set of symbols not in cache
 
         if symbols_missing_data:
             for symbol in tqdm(symbols_missing_data, desc="Counting BioAssays for targets"):
-                if symbol in counts:  # Already in counts
-                    continue
 
                 up_acc_results = rest_query.sql(UNIPROT_ID.format(symbol)).data
 
@@ -473,10 +460,6 @@ class Ranker:
                     resp = requests.get(filled)
                     number_assays = len(resp.text.split("\n")) - 1  # Remove header
                     counts[symbol] = number_assays
-
-        with open(BIOASSAY_CACHE, 'w') as bioassay_file:
-            json.dump(counts, bioassay_file)
-            logger.info(f"BioAssay data written to {BIOASSAY_CACHE}")
 
         for symbol, bioassay_count in counts.items():
             self.interactor_metadata[symbol]['bioassays'] = bioassay_count

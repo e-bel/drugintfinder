@@ -53,9 +53,9 @@ class DrugPopulator:
 
     def populate(self):
         """Populates the SQLite DB with Drug metadata."""
-        logger.info("Collecting Drug information")
         update = self.__update_needed()
         if update:
+            logger.info("Populating drug information")
             self.__parse__and_import_drug_metadata()
 
     def __update_needed(self) -> bool:
@@ -158,9 +158,9 @@ class ClinicalTrialPopulator:
 
     def populate(self):
         """Populates the SQLite DB with ClinicalTrial data."""
-        logger.info("Collecting Clinical Trial information")
         update = self.__update_needed()
         if update:
+            logger.info("Populating Clinical Trial information")
             ct_data = self.__collect_ct_info()
             self.__populate_table(ct_data)
 
