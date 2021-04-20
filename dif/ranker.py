@@ -485,7 +485,7 @@ class Ranker:
             ongoing_patent = "Yes" if drug_entry[PATENTS]['expired'] is True else "No"
             has_generic = "Yes" if drug_entry[PRODUCTS]['has_approved_generic'] is True else "No"
             target_count = drug_entry[TARGET_COUNT]
-            target_count_entry = "N/A" if target_count == -1 else target_count
+            target_count_entry = "N/A" if target_count == -1 or target_count != target_count else target_count
 
             # Compile
             row = {'Drug': drug_name,
