@@ -53,6 +53,8 @@ class Ranker:
         self.drug_scores = self.__generate_ranking_dict()
         self.drug_metadata = self.__compile_drug_metadata()
 
+        self.ct_summary = pd.DataFrame()
+
     def __parse_cached_data(self) -> tuple:
         target_mapper = dict()
         drug_ids = []
@@ -351,6 +353,7 @@ class Ranker:
 
         logger.info("Scoring Clinical Trial data")
         ct_mapper = self.__compile_ct_metadata()
+        ct_summary_rows = []
 
         for drug_name, ct_metadata in ct_mapper.items():
             pts = self.__reward  # Default to reward unless changed
@@ -359,7 +362,8 @@ class Ranker:
             for trial_id, trial_data in ct_metadata.items():
                 ct_score = {'keyword_disease_investigated': False,
                             'trial_ongoing': False,
-                            'similar_disease_investigated': False}
+                            'similar_disease_investigated': False,
+                            'conditions_investigated': trial_data['conditions']}
 
                 if self.disease in trial_data['conditions']:  # Disease-associated CT
                     ct_score['keyword_disease_investigated'] = True
@@ -377,7 +381,16 @@ class Ranker:
                             pts += self.__penalty
 
                 self.drug_scores[drug_name][CLINICAL_TRIALS][TRIALS][trial_id] = ct_score
+                ct_row = {'drug': drug_name, 'trial_id': trial_id, **ct_score}
+                ct_summary_rows.append(ct_row)
+
             self.drug_scores[drug_name][CLINICAL_TRIALS][POINTS] = pts
+
+        # Compile summary dataframe of CT information
+        column_names = ["Drug", "Trial ID", "Keyword Disease Investigated", "Trial Ongoing",
+                        "Similar Disease Investigated", "Conditions Investigated"]
+        self.ct_summary = pd.DataFrame(ct_summary_rows)
+        self.ct_summary.columns = column_names
 
     def count_associated_pathways(self) -> dict:
         """Goes through each interactor and checks if it is associated with a KEGG or Pathway Commons pathway."""
