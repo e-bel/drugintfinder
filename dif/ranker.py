@@ -389,8 +389,12 @@ class Ranker:
         # Compile summary dataframe of CT information
         column_names = ["Drug", "Trial ID", "Keyword Disease Investigated", "Trial Ongoing",
                         "Similar Disease Investigated", "Conditions Investigated"]
-        self.ct_summary = pd.DataFrame(ct_summary_rows)
-        self.ct_summary.columns = column_names
+
+        if ct_summary_rows:
+            self.ct_summary = pd.DataFrame(ct_summary_rows)
+            self.ct_summary.columns = column_names
+        else:
+            self.ct_summary = pd.DataFrame(columns=column_names)
 
     def count_associated_pathways(self) -> dict:
         """Goes through each interactor and checks if it is associated with a KEGG or Pathway Commons pathway."""
