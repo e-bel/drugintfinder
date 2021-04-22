@@ -409,12 +409,13 @@ class Ranker:
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
         """Obtains counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
-        results = session().query(TargetStats).filter_by(symbol=symbol).all()
-        assert len(results) < 2
+        results = session().query(TargetStats).filter_by(symbol=symbol).first()
         if results:
             hit = results[0]
-            data = {'symbol': hit.symbol, 'out_count': hit.out_count,
-                    'in_count': hit.in_count, 'both_count': hit.both_count}
+            data = {'symbol': hit.symbol,
+                    'out_count': hit.out_count,
+                    'in_count': hit.in_count,
+                    'both_count': hit.both_count}
             return data
 
     @staticmethod
