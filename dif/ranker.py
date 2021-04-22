@@ -8,6 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 from typing import Optional
 from ebel_rest import query as rest_query
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import MultipleResultsFound
 
 from dif.constants import *
 from dif.finder import InteractorFinder
@@ -409,13 +411,23 @@ class Ranker:
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
         """Obtains counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
-        results = session().query(TargetStats).filter_by(symbol=symbol).first()
+        try:
+            results = session().query(TargetStats).filter_by(symbol=symbol).one()
+
+        except MultipleResultsFound as mrfe:
+            print(mrfe)
+            logger.warning(f"Multiple results found for {symbol}")
+            results = None
+
+        except NoResultFound:
+            logger.info(f"No edge counts found for {symbol}")
+            results = None
+
         if results:
-            hit = results[0]
-            data = {'symbol': hit.symbol,
-                    'out_count': hit.out_count,
-                    'in_count': hit.in_count,
-                    'both_count': hit.both_count}
+            data = {'symbol': results.symbol,
+                    'out_count': results.out_count,
+                    'in_count': results.in_count,
+                    'both_count': results.both_count}
             return data
 
     @staticmethod
