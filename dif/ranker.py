@@ -355,7 +355,6 @@ class Ranker:
 
         logger.info("Scoring Clinical Trial data")
         ct_mapper = self.__compile_ct_metadata()
-        logger.info(json.dumps(ct_mapper))
         ct_summary_rows = []
 
         for drug_name, ct_metadata in ct_mapper.items():
