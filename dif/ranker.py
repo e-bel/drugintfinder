@@ -223,7 +223,7 @@ class Ranker:
         return contradiction
 
     @staticmethod
-    def __check_rel_synergy(drug_actions: set, int_rel: set) -> bool:
+    def __check_rel_synergy(drug_actions: set, int_rel: set) -> Optional[bool]:
         """Returns True is drug/target relation and interactor/pTAU relation results in decrease of pTAU else False."""
         pos_int_rel = ['increases', 'directly_increases']
         neg_int_rel = ['decreases', 'directly_decreases']
@@ -246,7 +246,7 @@ class Ranker:
             return True
 
         else:  # drug_actions = 'neutral'
-            return False
+            return None
 
     def score_drug_relationships(self):
         """Adds the score to the drug/target pair based on whether it has information on the action
@@ -267,7 +267,7 @@ class Ranker:
                 self.drug_scores[drug_name][INTERACTORS][target_name] = {
                     TIC: False,
                     DAC: False,
-                    SYNERGY: False,
+                    SYNERGY: None,
                     POINTS: 0
                 }
                 tic = self.__check_target_interactor_contradictions(ti_metadata)  # Target/interactor
@@ -294,8 +294,9 @@ class Ranker:
 
                     else:  # Compare synergy of drug actions with interactor/pTAU relations
                         synergy = self.__check_rel_synergy(mapped_actions, rels)
+                        self.drug_scores[drug_name][INTERACTORS][target_name][SYNERGY] = synergy
+
                         if synergy is True:  # Good comparison
-                            self.drug_scores[drug_name][INTERACTORS][target_name][SYNERGY] = synergy
                             pts += self.__reward
 
                         else:
@@ -505,7 +506,15 @@ class Ranker:
         for drug_name, symbol in self.unique_drug_target_combos:
             drug_entry = self.drug_scores[drug_name]
 
-            synergizes = "Yes" if drug_entry[INTERACTORS][symbol][SYNERGY] else "No"
+            synergy_result = drug_entry[INTERACTORS][symbol][SYNERGY]
+            if synergy_result is None:
+                synergizes = "N/A"
+
+            elif synergy_result is False:
+                synergizes = "No"
+
+            else:  # is True
+                synergizes = "Yes"
 
             # Interactor metadata
             num_bioassays = self.interactor_metadata[symbol]['bioassays']
