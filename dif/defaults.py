@@ -41,7 +41,8 @@ logging.basicConfig(filename=LOG_FILE_PATH,
 # SQLite
 DEFAULT_DB_PATH = os.path.join(PROJECT_DIR, f"dif.db")
 CONN_ENV = os.getenv('DIF_DB_PATH')
-CONN = CONN_ENV if CONN_ENV else f"sqlite:///{DEFAULT_DB_PATH}"
+CONN_PATH = CONN_ENV if CONN_ENV else DEFAULT_DB_PATH
+CONN = f"sqlite:///{CONN_PATH}"
 if not database_exists(CONN):
     create_database(CONN)
 
