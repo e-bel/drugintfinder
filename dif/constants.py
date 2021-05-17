@@ -76,6 +76,7 @@ ACTION_MAPPER = {'activator': POSREG,
                  'antibody': NEUTRAL,  # Can't tell if it's pos or neg
                  'binder': NEUTRAL,  # Can't tell if it's pos or neg
                  'binding': NEUTRAL,
+                 'blocker': NEGREG,
                  'chaperone': POSREG,
                  'cofactor': POSREG,  # Cofactor = component for activity
                  'inducer': POSREG,
@@ -83,10 +84,12 @@ ACTION_MAPPER = {'activator': POSREG,
                  'ligand': NEUTRAL,  # Can't tell if it's agonist or anatagnoist
                  'modulator': NEUTRAL,  # Can't tell if it's pos or neg
                  'multitarget': NEGREG,  # 'multitarget' only used for Dasatinib which is an inhibitor
+                 'negative modulator': NEGREG,
                  'neutralizer': NEGREG,
                  'other': NEUTRAL,
                  'other/unknown': NEUTRAL,
                  'partial agonist': POSREG,
+                 'positive allosteric modulator': POSREG,
                  'potentiator': NEGREG,  # 'potentiator' only used for Pimecrolimus which is an inhibitor
                  'stabilization': POSREG,
                  'stimulator': POSREG,
