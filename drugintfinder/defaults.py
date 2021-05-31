@@ -26,7 +26,7 @@ SIMILAR_DISEASES = ["Parkinson Disease", "Amyotrophic Lateral Sclerosis", "Neuro
 
 # Default Directory Paths
 HOME = str(Path.home())
-PROJECT_DIR = os.path.join(HOME, ".dif")
+PROJECT_DIR = os.path.join(HOME, ".drugintfinder")
 LOG_DIR = os.path.join(PROJECT_DIR, "logs")
 CACHE_DIR = os.path.join(PROJECT_DIR, "cache")
 
@@ -34,12 +34,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Logging Configuration
-LOG_FILE_PATH = os.path.join(LOG_DIR, "dif.log")
+LOG_FILE_PATH = os.path.join(LOG_DIR, "drugintfinder.log")
 logging.basicConfig(filename=LOG_FILE_PATH,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # SQLite
-DEFAULT_DB_PATH = os.path.join(PROJECT_DIR, f"dif.db")
+DEFAULT_DB_PATH = os.path.join(PROJECT_DIR, "drugintfinder.db")
 CONN_ENV = os.getenv('DIF_DB_PATH')
 CONN_PATH = CONN_ENV if CONN_ENV else DEFAULT_DB_PATH
 CONN = f"sqlite:///{CONN_PATH}"

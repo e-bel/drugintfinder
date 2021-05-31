@@ -5,15 +5,17 @@ import pandas as pd
 from typing import Optional
 from ebel_rest import query as rest_query
 
-from dif.defaults import session, engine
-from dif.models import General, Druggable
-from dif.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY, EDGE_MAPPER
+from drugintfinder.defaults import session, engine
+from drugintfinder.models import General, Druggable
+from drugintfinder.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY, EDGE_MAPPER
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
 class InteractorFinder:
+    """finds the different types of interactors (directly linked nodes) for a given node symbol and protein
+    specification."""
 
     def __init__(self, symbol: str, pmods: list = None, edge: str = 'E'):
         self.names = list({symbol, symbol.upper(), symbol.lower(), symbol.capitalize()})

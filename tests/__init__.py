@@ -1,1 +1,1 @@
-"""Unit test package for dif."""
+"""Unit test package for drugintfinder."""

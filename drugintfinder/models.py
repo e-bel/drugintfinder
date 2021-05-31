@@ -1,10 +1,10 @@
 """Table definitions for SQLite DB."""
 
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN, Table, ForeignKey
+from sqlalchemy import Column, Integer, VARCHAR, INTEGER, BOOLEAN, ForeignKey
 
-from dif.defaults import engine
+from drugintfinder.defaults import engine
 
 Base = declarative_base()
 

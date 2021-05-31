@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import List, Union, Dict
 from ebel_rest import query as rest_query
 
-from dif.constants import *
-from dif.defaults import session
-from dif.models import Trials, Patents, Products, Drugs
+from drugintfinder.constants import DRUG_COUNT, DRUG_METADATA, CLINICAL_TRIALS_COUNT, CLINICAL_TRIALS_DATA
+from drugintfinder.defaults import session
+from drugintfinder.models import Trials, Patents, Products, Drugs
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -207,8 +207,8 @@ class ClinicalTrialPopulator:
     @staticmethod
     def __populate_table(data: list):
         """Populates the SQLite DB with ClinicalTrial data."""
-        logger.info(f"Importing Clinical Trial data")
-        for entry in tqdm(data, desc=f"Parsing and importing clinical trials data"):
+        logger.info("Importing Clinical Trial data")
+        for entry in tqdm(data, desc="Parsing and importing clinical trials data"):
             for key, vals in entry.items():
                 if isinstance(vals, list):
                     entry[key] = "|".join(vals)

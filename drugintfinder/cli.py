@@ -1,15 +1,15 @@
-"""Console script for dif."""
+"""Console script for drugintfinder."""
 import sys
 import click
 
-from dif.finder import InteractorFinder
-from dif.ranker import Ranker
+from drugintfinder.finder import InteractorFinder
+from drugintfinder.ranker import Ranker
 
 
 @click.group(help=f"Druggable Interactor Finder Framework Command Line Utilities on {sys.executable}")
 @click.version_option()
 def main():
-    """Console script for dif."""
+    """Console script for drugintfinder."""
     pass
 
 
@@ -18,7 +18,7 @@ def main():
 @click.option('-n', '--node', default='protein', help="Target node type. Defaults to 'protein'.")
 @click.option('-e', '--edge', default='causal', help="Interactor/target relationship type. Defaults to 'causal'.")
 @click.option('-m', '--pmods', default=[], help="Comma separated list of acceptable target protein modifications.")
-@click.option('-d', '--druggable', is_flag=True, default=False, help="Flag to enable filtering of only druggable ints.")
+@click.option('-d', '--druggable', is_flag=True, default=False, help="Flag to enable filtering of druggable ints.")
 @click.option('-s', '--sql', is_flag=True, default=False, help="Flag to print query.")
 def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bool):
     """Identifies interactors of given target and criteria.
@@ -38,10 +38,6 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
         If True, will only include interactors that are targeted by a drug in the graph.
     sql: bool
         Flag to print query.
-
-    Returns
-    -------
-
     """
     if isinstance(pmods, str):
         pmods = pmods.split(",")
@@ -61,12 +57,25 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
 @click.option('-m', '--pmods', default=[], help="Comma separated list of acceptable target protein modifications.")
 @click.option('-r', '--reward', default=1, help="Points awarded for passing inspection criteria.")
 @click.option('-p', '--penalty', default=-1, help="Points penalized for failing inspection criteria.")
-def rank(symbol: str, pmods: str, reward: int, penalty: int):
-    """Ranks the drug/interactor combos with metadata and returns a summary table."""
+def rank(symbol: str, pmods: str, reward: str, penalty: str):
+    """Ranks the drug/interactor combos with metadata and returns a summary table.
+
+    Parameters
+    ----------
+    symbol: str
+        Gene symbol of the target node.
+    pmods: str
+        Comma separated list of 3-letter target protein modifications. This will filter target node results for those
+        with specified pmods.
+    reward: str
+        Number of points to reward entries that follow desired outcome.
+    penalty: str
+        Number of points to penalize entries that follow desired outcome.
+    """
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    ranker = Ranker(symbol=symbol, pmods=pmods, reward=reward, penalty=penalty)
+    ranker = Ranker(symbol=symbol, pmods=pmods, reward=int(reward), penalty=int(penalty))
     ranker.rank()
     summary = ranker.summarize()
     click.echo(summary)

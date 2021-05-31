@@ -11,10 +11,12 @@ from ebel_rest import query as rest_query
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
-from dif.constants import *
-from dif.finder import InteractorFinder
-from dif.defaults import session, SIMILAR_DISEASES
-from dif.models import Trials, TargetStats, Patents, Products, Drugs, BioAssays
+from drugintfinder.constants import PATENTS, INTERACTORS, PRODUCTS, IDENTIFIERS, NEGREG, POSREG, SYNERGY, POINTS, DAC, \
+    ACTION_MAPPER, CT_MAPPER, CLINICAL_TRIALS, TRIALS, IN_COUNT, OUT_COUNT, PUBCHEM_BIOASSAY_API, UNIPROT_ID, TIC, \
+    ASSOCIATED_PATHWAYS, TARGET_COUNT
+from drugintfinder.finder import InteractorFinder
+from drugintfinder.defaults import session, SIMILAR_DISEASES
+from drugintfinder.models import Trials, TargetStats, Patents, Products, Drugs, BioAssays
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -44,8 +46,12 @@ class Ranker:
 
         self.interactor_metadata = {int_name: dict() for int_name in self.interactors}
 
-        self.__cached_drugs = self.__session.query(Drugs.id, Drugs.drug_name, Drugs.num_targets, Drugs.clinical_trials)\
-            .filter(Drugs.drug_name.in_(self.interactor_drugs)).all()
+        self.__cached_drugs = self.__session.query(Drugs.id,
+                                                   Drugs.drug_name,
+                                                   Drugs.num_targets,
+                                                   Drugs.clinical_trials)\
+            .filter(Drugs.drug_name.in_(self.interactor_drugs))\
+            .all()
 
         target_mapper, drug_ids, cts = self.__parse_cached_data()
         self.target_count_mapper = target_mapper
@@ -127,7 +133,7 @@ class Ranker:
                 metadata[drug_name][INTERACTORS][interactor_name]['relation_type'].add(r['relation_type'])
 
             else:
-                rel_data = {'relation_type': {r['relation_type']},  # Collect relation types in set for later comparison
+                rel_data = {'relation_type': {r['relation_type']},  # Collect rel types in set for later comparison
                             'actions': r['drug_rel_actions'].split("|") if r['drug_rel_actions'] else None}
                 metadata[drug_name][INTERACTORS][interactor_name] = rel_data
 
@@ -175,7 +181,8 @@ class Ranker:
             self.drug_scores[drug_name][PATENTS] = {'expired': all_patents_expired,
                                                     POINTS: self.__reward if all_patents_expired else self.__penalty}
             self.drug_scores[drug_name][PRODUCTS] = {'has_approved_generic': approved_generic_available,
-                                                     POINTS: self.__reward if approved_generic_available else self.__penalty}
+                                                     POINTS: self.__reward if approved_generic_available
+                                                     else self.__penalty}
 
             try:
                 self.drug_scores[drug_name][TARGET_COUNT] = self.target_count_mapper[drug_name]
@@ -463,7 +470,7 @@ class Ranker:
         return edge_counts
 
     def __get_bioassay_cache(self) -> dict:
-        """Gets BioAssay counts in DB and returns a dict with protein target symbol as key and bioassay count as val."""
+        """Gets BioAssay counts in DB and returns a dict - key: protein target symbol, val: bioassay count."""
         bioassay_counts = self.__session.query(BioAssays.target, BioAssays.num_assays).all()
         return {r[0]: r[1] for r in bioassay_counts}
 

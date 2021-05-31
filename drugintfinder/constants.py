@@ -14,7 +14,7 @@ CLINICAL_TRIALS = 'clinical_trials'
 TIC = 'target_interactor_contradiction'
 DAC = 'drug_action_contradiction'
 
-## MAPPER
+# MAPPER
 POSREG = 'positive_regulator'
 NEGREG = 'negative_regulator'
 NEUTRAL = 'neutral'
@@ -104,7 +104,8 @@ ACTION_MAPPER = {'activator': POSREG,
 ###########
 
 IN_COUNT = "SELECT count(*) as number FROM causal WHERE in.name = '{}' AND in.pure = true AND in.@class = 'protein'"
-OUT_COUNT = "SELECT count(*) as number FROM causal WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"
+OUT_COUNT = """SELECT count(*) as number FROM causal
+WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"""
 
 UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
 
@@ -169,7 +170,8 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         {{class:{}, as:target, WHERE:(name in {})}}
         .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
         .outV(){{class:bel, as:capsule_interactor}}
-        .bothE('has__protein', 'has_modified_protein', 'has_variant_protein', 'has_located_protein', 'has_fragmented_protein')
+        .bothE('has__protein', 'has_modified_protein', 'has_variant_protein',
+        'has_located_protein', 'has_fragmented_protein')
         .bothV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}
         .inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}
