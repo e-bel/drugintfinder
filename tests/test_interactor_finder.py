@@ -13,7 +13,6 @@ class TestInteractorFinder:
 
     def test_find_interactors(self):
         """Test the find_interactors method."""
-        # finder = InteractorFinder(symbol=MAPT, pmods=[PHOSPHORYLATION], edge=CAUSAL)
         finder.find_interactors(target_type=PROTEIN)
         results = finder.results
 
