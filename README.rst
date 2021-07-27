@@ -53,6 +53,9 @@ and thus comes with no warranty or guarantee of maintenance or support.
     :target: https://pypi.python.org/pypi/drugintfinder
     :alt: MIT License
 
+.. |pypi_version| image:: https://img.shields.io/pypi/v/drugintfinder.svg
+    :alt: Current version on PyPI
+
 .. |python_versions| image:: https://img.shields.io/pypi/pyversions/drugintfinder.svg
     :alt: Stable Supported Python Versions
 
