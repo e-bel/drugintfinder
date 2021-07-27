@@ -20,13 +20,13 @@ Finding the direct causal interactors of the phosphorylated MAPT protein:
 
 .. code-block:: sh
 
-    $ drugintfinder MAPT -n protein -e causal -m pho
+    $ dif find MAPT -n protein -e causal -m pho
 
 Finding the direct causal interactors of the phosphorylated MAPT protein which are druggable:
 
 .. code-block:: sh
 
-    $ drugintfinder MAPT -n protein -e causal -m pho -d
+    $ drugintfinder find MAPT -n protein -e causal -m pho -d
 
 
 Disclaimer

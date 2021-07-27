@@ -82,4 +82,4 @@ def rank(symbol: str, pmods: str, reward: str, penalty: str):
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(main())
