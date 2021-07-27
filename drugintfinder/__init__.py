@@ -4,4 +4,4 @@ from drugintfinder import defaults
 
 __author__ = """Bruce Schultz"""
 __email__ = 'bruce.schultz@scai.fraunhofer.de'
-__version__ = '0.1.1'
+__version__ = '0.1.2'
