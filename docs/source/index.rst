@@ -1,5 +1,6 @@
 Welcome to Druggable Interactor Finder's Documentation!
 =======================================================
+.. automodule:: drugintfinder
 
 .. toctree::
    :maxdepth: 2

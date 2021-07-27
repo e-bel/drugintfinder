@@ -12,7 +12,7 @@ To install Druggable Interactor Finder, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install drugintfind
+    $ pip install drugintfinder
 
 This is the preferred method to install Druggable Interactor Finder, as it will always install the most recent stable release.
 
