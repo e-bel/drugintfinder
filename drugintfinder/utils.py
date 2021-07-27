@@ -16,7 +16,7 @@ def export_table(results: pd.DataFrame, file_path: str):
     extension = file_path.split(".")[-1]
     acceptable_file_types = ("csv", "xlsx", "tsv")
 
-    if extension not in acceptable_file_types
+    if extension not in acceptable_file_types:
         raise ValueError("Results output path must end with 'xlsx', 'csv', or 'tsv'")
 
     if extension == "xlsx":
