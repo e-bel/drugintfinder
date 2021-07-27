@@ -1,10 +1,14 @@
-include CONTRIBUTING.rst
-include HISTORY.rst
-include LICENSE
-include README.rst
+graft drugintfinder
+graft tests
 
-recursive-include tests *
-recursive-exclude * __pycache__
-recursive-exclude * *.py[co]
+include docs/Makefile
+include *.rst *.txt *.yml LICENSE *.md
 
-recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+recursive-include docs *.py *.rst *.bat
+recursive-include docs *.ini
+recursive-include docs *.md
+
+recursive-exclude notebooks *.json
+global-exclude *.py[cod] __pycache__ *.so .DS_Store *.png *.ipynb
+
+exclude .bumpversion.cfg .editorconfig tox.ini .flake8 .editorconfig

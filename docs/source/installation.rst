@@ -12,7 +12,7 @@ To install Druggable Interactor Finder, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install druggable_interactor_finder
+    $ pip install drugintfind
 
 This is the preferred method to install Druggable Interactor Finder, as it will always install the most recent stable release.
 
@@ -32,13 +32,13 @@ You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/brucetony/druggable_interactor_finder
+    $ git clone git://github.com/e-bel/drugintfinder
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/brucetony/druggable_interactor_finder/tarball/master
+    $ curl -OJL https://github.com/e-bel/drugintfinder/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
