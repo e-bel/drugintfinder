@@ -12,7 +12,7 @@ def chunks(lst, n):
 
 
 def export_table(results: pd.DataFrame, file_path: str):
-    """Exports results dataframe to path."""
+    """Export results dataframe to path."""
     extension = file_path.split(".")[-1]
     acceptable_file_types = ("csv", "xlsx", "tsv")
 

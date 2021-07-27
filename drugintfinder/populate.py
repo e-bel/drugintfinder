@@ -18,17 +18,20 @@ sess = session()
 
 
 def populate():
+    """Populate tables."""
     ClinicalTrialPopulator().populate()
     DrugPopulator().populate()
 
 
 class DrugPopulator:
+    """Populate the associate drug tables."""
 
     def __init__(self):
+        """Init method for DrugPopulator."""
         self.__num_drugs_in_graphstore = rest_query.sql(DRUG_COUNT).data[0]['num_drugs']
 
     def __collect_drugs_from_graphstore(self, chunk_size: int = 10000) -> list:
-        """Query clinical trial data in chunks"""
+        """Query clinical trial data in chunks."""
         logger.warning("Collecting drug metadata from graphstore")
         total_num_chunks = (self.__num_drugs_in_graphstore // chunk_size) + 1
 
@@ -40,7 +43,7 @@ class DrugPopulator:
 
     @staticmethod
     def __extract_values(value_dict: dict, key: str):
-        """Extracts non-None values from key if present and pops key."""
+        """Extract non-None values from key if present and pops key."""
         values = []
         if key in value_dict:
             vals = value_dict.pop(key)
@@ -52,14 +55,14 @@ class DrugPopulator:
         return value_dict, values
 
     def populate(self):
-        """Populates the SQLite DB with Drug metadata."""
+        """Populate the SQLite DB with Drug metadata."""
         update = self.__update_needed()
         if update:
             logger.info("Populating drug information")
             self.__parse__and_import_drug_metadata()
 
     def __update_needed(self) -> bool:
-        """Checks if drug data is missing."""
+        """Check if drug data is missing."""
         db_entries = sess.query(func.count(Drugs.id)).first()[0]
         return False if db_entries == self.__num_drugs_in_graphstore else True
 
@@ -96,7 +99,7 @@ class DrugPopulator:
 
     @staticmethod
     def __parse_patents(patents: Dict[str, dict]) -> list:
-        """Parses patent information from graphstore and imports it into SQLite DB at the end."""
+        """Parse patent information from graphstore and imports it into SQLite DB at the end."""
         patent_rows = []
         patent_info = patents['patent']
 
@@ -117,7 +120,7 @@ class DrugPopulator:
 
     @staticmethod
     def __parse_products(products_raw: Union[Dict[str, dict], List[Dict[str, dict]]]) -> list:
-        """Parses product information from graphstore and imports it into SQLite DB at the end."""
+        """Parse product information from graphstore and imports it into SQLite DB at the end."""
         product_rows = []
 
         if not isinstance(products_raw, list):
@@ -154,10 +157,11 @@ class ClinicalTrialPopulator:
     """Clinical Trials class for importing into DB."""
 
     def __init__(self):
+        """Init method to CTPopulator."""
         self.__num_trials_in_graphstore = rest_query.sql(CLINICAL_TRIALS_COUNT).data[0]['trial_count']
 
     def populate(self):
-        """Populates the SQLite DB with ClinicalTrial data."""
+        """Populate the SQLite DB with ClinicalTrial data."""
         update = self.__update_needed()
         if update:
             logger.info("Populating Clinical Trial information")
@@ -165,12 +169,12 @@ class ClinicalTrialPopulator:
             self.__populate_table(ct_data)
 
     def __update_needed(self) -> bool:
-        """Checks if Clinical Trial data is missing."""
+        """Check if Clinical Trial data is missing."""
         db_entries = sess.query(func.count(Trials.id)).first()[0]
         return False if db_entries == self.__num_trials_in_graphstore else True
 
     def __collect_ct_info_from_graphstore(self, chunk_size: int = 10000) -> list:
-        """Query clinical trial data in chunks"""
+        """Query clinical trial data in chunks."""
         total_num_chunks = (self.__num_trials_in_graphstore // chunk_size) + 1
 
         chunk_index = 0
@@ -180,7 +184,7 @@ class ClinicalTrialPopulator:
             chunk_index += 1
 
     def __collect_ct_info(self) -> list:
-        """Collects clinical trial information for every identified drug."""
+        """Collect clinical trial information for every identified drug."""
         num_chunks = (self.__num_trials_in_graphstore // 10000) + 1
         data_generator = self.__collect_ct_info_from_graphstore()
 
@@ -206,7 +210,7 @@ class ClinicalTrialPopulator:
 
     @staticmethod
     def __populate_table(data: list):
-        """Populates the SQLite DB with ClinicalTrial data."""
+        """Populate the SQLite DB with ClinicalTrial data."""
         logger.info("Importing Clinical Trial data")
         for entry in tqdm(data, desc="Parsing and importing clinical trials data"):
             for key, vals in entry.items():

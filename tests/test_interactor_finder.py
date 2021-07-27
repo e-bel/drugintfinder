@@ -42,6 +42,7 @@ class TestInteractorFinder:
         assert all([col in results.columns for col in expected_cols])
 
     def test_unique_interactors(self):
+        """Test the unique_interactors method."""
         finder.druggable_interactors()
 
         ui = finder.unique_interactors()
@@ -49,6 +50,7 @@ class TestInteractorFinder:
         assert len(ui) == 80
 
     def test_unique_drugs(self):
+        """Test the unique_drugs method."""
         finder.druggable_interactors()
 
         ud = finder.unique_drugs()

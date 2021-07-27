@@ -1,8 +1,8 @@
 """Calculate the ranking of the hits."""
 
 import json
-import requests
 import logging
+import requests
 import pandas as pd
 
 from tqdm import tqdm
@@ -11,9 +11,9 @@ from ebel_rest import query as rest_query
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
-from drugintfinder.constants import PATENTS, INTERACTORS, PRODUCTS, IDENTIFIERS, NEGREG, POSREG, SYNERGY, POINTS, DAC, \
-    ACTION_MAPPER, CT_MAPPER, CLINICAL_TRIALS, TRIALS, IN_COUNT, OUT_COUNT, PUBCHEM_BIOASSAY_API, UNIPROT_ID, TIC, \
-    ASSOCIATED_PATHWAYS, TARGET_COUNT
+from drugintfinder.constants import PATENTS, INTERACTORS, PRODUCTS, IDENTIFIERS, NEGREG, POSREG, SYNERGY, POINTS, \
+    DAC, ACTION_MAPPER, CT_MAPPER, CLINICAL_TRIALS, TRIALS, IN_COUNT, OUT_COUNT, PUBCHEM_BIOASSAY_API, UNIPROT_ID, \
+    TIC, ASSOCIATED_PATHWAYS, TARGET_COUNT
 from drugintfinder.finder import InteractorFinder
 from drugintfinder.defaults import session, SIMILAR_DISEASES
 from drugintfinder.models import Trials, TargetStats, Patents, Products, Drugs, BioAssays
@@ -23,12 +23,14 @@ logger.setLevel(logging.DEBUG)
 
 
 class Ranker:
-    """Class for taking an InteractorFinder object with saved results and annotating said results with ranking
-    metadata."""
+    """Rank and annotate druggable interactors identified using the InteractorFinder class."""
 
     def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1,
                  disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
-        """Should be initialized with an InteractorFinder object that has results saved."""
+        """Init for Ranker.
+
+        Should be initialized with an InteractorFinder object that has results saved.
+        """
         self.__session = session()
         self.symbol = symbol
         self.pmods = pmods
@@ -77,14 +79,17 @@ class Ranker:
 
     @property
     def interactors(self) -> list:
+        """Compile a list of all identified interactors."""
         return list(self.__finder.unique_interactors())
 
     @property
     def interactor_drugs(self) -> list:
+        """Compile a list of all identified drugs."""
         return list(self.__finder.unique_drugs())
 
     @property
     def unique_drug_target_combos(self) -> set:
+        """Create a list of tuples uniue combinations of drugs and their targets from the ranking results."""
         unique_pairs = set()
         pairs = self.__finder.drug_and_interactors().to_dict('records')
 
@@ -95,21 +100,23 @@ class Ranker:
 
     @property
     def dbid_drugname_mapper(self):
+        """Map DrugBank IDs to their drug names."""
         return {data[IDENTIFIERS]['drugbank_id']: drug_name for drug_name, data in self.drug_metadata.items()}
 
     def rank(self):
+        """Score drugs and their targets."""
         self.score_drugs()
         self.score_interactors()
 
     def score_drugs(self):
-        """Wrapper method to parse raw drug metadata and calculate points for each ranking criteria."""
+        """Parse raw drug metadata and calculate points for each ranking criteria."""
         self.score_drug_relationships()
         self.score_patents_and_products()
         self.score_cts()
         # self.score_homologs()
 
     def score_interactors(self):
-        """Wrapper method to parse raw interactor metadata and calculate points for each ranking criteria."""
+        """Parse raw interactor metadata and calculate points for each ranking criteria."""
         self.count_bioassays()
         self.count_edges()
 
@@ -140,7 +147,7 @@ class Ranker:
         return metadata
 
     def __generate_ranking_dict(self) -> dict:
-        """Compiles a generic empty dict to fill with raw and scored data."""
+        """Compile a generic empty dict to fill with raw and scored data."""
         empty_dict = {drug_name: {PATENTS: dict(),
                                   PRODUCTS: dict(),
                                   IDENTIFIERS: dict(),
@@ -152,7 +159,7 @@ class Ranker:
         return empty_dict
 
     def score_patents_and_products(self):
-        """Parses patent and product information and generates a score."""
+        """Parse patent and product information and generates a score."""
         logger.info("Scoring patent and product information")
 
         relevant_patents = self.__session.query(Drugs.drug_name, Patents.expired) \
@@ -191,7 +198,7 @@ class Ranker:
                 logger.error(f"{drug_name} not found in cache. Try populate.populate() again.")
 
     def score_homologs(self, tc_json: str, db_id_mapper: dict, tc_threshold: int = 0.95):
-        """Produces a dictionary detailing structural homologs of every drugbank drug."""
+        """Produce a dictionary detailing structural homologs of every drugbank drug."""
         with open(tc_json, 'r') as mcsf:
             content = json.load(mcsf)
         homolog_scores = dict()
@@ -223,7 +230,7 @@ class Ranker:
 
     @staticmethod
     def __check_drug_action_contradictions(drug_actions: set) -> bool:
-        """Checks if both 'positive_regulator' and 'negative_regulator' in the set of mapped drug/target relations."""
+        """Check if both 'positive_regulator' and 'negative_regulator' in the set of mapped drug/target relations."""
         contradiction = False
         if POSREG and NEGREG in drug_actions:
             contradiction = True
@@ -231,7 +238,7 @@ class Ranker:
 
     @staticmethod
     def __check_rel_synergy(drug_actions: set, int_rel: set) -> Optional[bool]:
-        """Returns True is drug/target relation and interactor/pTAU relation results in decrease of pTAU else False."""
+        """Return True is drug/target relation and interactor/pTAU relation results in decrease of pTAU else False."""
         pos_int_rel = ['increases', 'directly_increases']
         neg_int_rel = ['decreases', 'directly_decreases']
 
@@ -256,8 +263,11 @@ class Ranker:
             return None
 
     def score_drug_relationships(self):
-        """Adds the score to the drug/target pair based on whether it has information on the action
-        (inhibitor/activator) and whether it makes sense based on the relationship of the interactor with target.
+        """Add the score to the drug/target pair.
+
+        Score is based on whether it has information on the action (inhibitor/activator) and whether it makes
+        sense based on the relationship of the interactor with target.
+
         Checks:
         * Whether there are contradicting edges between target/interactor (TIC) --> penalty
         * Whether there are contradicting drug actions between drug/interactor (DAC) --> penalty
@@ -313,7 +323,7 @@ class Ranker:
 
     @staticmethod
     def __chunk_cts(trial_id_list: list, chunk_size: int = 100) -> list:
-        """Creates a generator of trial ID lists."""
+        """Create a generator of trial ID lists."""
         total_num_chunks = (len(trial_id_list) // chunk_size) + 1
         chunk_index = 0
         while chunk_index < total_num_chunks:
@@ -323,7 +333,7 @@ class Ranker:
             chunk_index += 1
 
     def __build_ct_cache(self) -> dict:
-        """Builds a dictionary of metadata for each clinical trial relevant to the query."""
+        """Build a dictionary of metadata for each clinical trial relevant to the query."""
         cached_ct_data = dict()
         relevant_trial_ids = list({trial_id for id_list in self.relevant_cts.values() for trial_id in id_list})
 
@@ -341,7 +351,7 @@ class Ranker:
         return cached_ct_data
 
     def __compile_ct_metadata(self) -> dict:
-        """Compiles the Clinical Trial data from the DB."""
+        """Compile the Clinical Trial data from the DB."""
         ct_mapper = dict()
         cached_ct_data = self.__build_ct_cache()
 
@@ -358,9 +368,10 @@ class Ranker:
         return ct_mapper
 
     def score_cts(self):
-        """Scores drugs based on involvement in a clinical trial. Returned dictionary contains
-        points and relevant AD-associated CT information."""
+        """Score drugs based on involvement in a clinical trial.
 
+        Returned dictionary contains points and relevant AD-associated CT information.
+        """
         logger.info("Scoring Clinical Trial data")
         ct_mapper = self.__compile_ct_metadata()
         ct_summary_rows = []
@@ -407,7 +418,7 @@ class Ranker:
             self.ct_summary = pd.DataFrame(columns=column_names)
 
     def count_associated_pathways(self) -> dict:
-        """Goes through each interactor and checks if it is associated with a KEGG or Pathway Commons pathway."""
+        """Go through each interactor and checks if it is associated with a KEGG or Pathway Commons pathway."""
         pathways = dict()
         for protein in tqdm(self.interactors, desc="Checking pathways"):
             r = rest_query.sql(ASSOCIATED_PATHWAYS.format(protein, protein)).data
@@ -417,7 +428,7 @@ class Ranker:
 
     @staticmethod
     def __query_db_edge_counts(symbol: str) -> Optional[dict]:
-        """Obtains counts from SQLite DB for given gene symbol."""
+        """Obtain counts from SQLite DB for given gene symbol."""
         logger.info("Querying SQLite DB for edge counts")
         try:
             results = session().query(TargetStats).filter_by(symbol=symbol).one()
@@ -440,7 +451,7 @@ class Ranker:
 
     @staticmethod
     def __query_graphstore_edge_counts(symbol: str) -> dict:
-        """Queries the graphstore for the edge counts for given gene symbol."""
+        """Query the graphstore for the edge counts for given gene symbol."""
         in_count = rest_query.sql(IN_COUNT.format(symbol)).data[0]['number']
         out_count = rest_query.sql(OUT_COUNT.format(symbol)).data[0]['number']
         both_count = out_count + in_count
@@ -456,7 +467,7 @@ class Ranker:
         return counts
 
     def count_edges(self) -> dict:
-        """Counts the number of incoming, outgoing, and total edges for each interactor."""
+        """Count the number of incoming, outgoing, and total edges for each interactor."""
         edge_counts = dict()
         logger.info("Gathering edge counts")
         for symbol in tqdm(self.interactor_metadata.keys(), total=len(self.interactor_metadata),
@@ -470,12 +481,12 @@ class Ranker:
         return edge_counts
 
     def __get_bioassay_cache(self) -> dict:
-        """Gets BioAssay counts in DB and returns a dict - key: protein target symbol, val: bioassay count."""
+        """Get BioAssay counts in DB and returns a dict - key: protein target symbol, val: bioassay count."""
         bioassay_counts = self.__session.query(BioAssays.target, BioAssays.num_assays).all()
         return {r[0]: r[1] for r in bioassay_counts}
 
     def count_bioassays(self) -> dict:
-        """Queries the PubChem API to obtain the number of available BioAssays for each gene symbol in the list.
+        """Query the PubChem API to obtain the number of available BioAssays for each gene symbol in the list.
 
         Returns
         -------
@@ -509,6 +520,7 @@ class Ranker:
         return counts
 
     def summarize(self) -> pd.DataFrame:
+        """Summarize the ranking results."""
         rows = []
         for drug_name, symbol in self.unique_drug_target_combos:
             drug_entry = self.drug_scores[drug_name]

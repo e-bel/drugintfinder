@@ -24,7 +24,7 @@ def main():
 @click.option('-o', '--output', default=None, help="Results output path - defaults to Excel.")
 @click.option('-v', '--verbose', is_flag=True, default=False, help="Flag to print results to STDOUT.")
 def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bool, output: str, verbose: bool):
-    """Identifies interactors of given target and criteria.
+    """Identify interactors of given target and criteria.
 
     Parameters
     ----------

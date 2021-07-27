@@ -10,12 +10,16 @@ Base = declarative_base()
 
 
 class MetaClass:
+    """Meta methods for handling DB tables."""
 
     def dump(self):
+        """Delete all tables in DB."""
         return dict([(k, v) for k, v in vars(self).items() if not k.startswith('_')])
 
 
 class Druggable(MetaClass, Base):
+    """Druggable interactor table definitions."""
+
     __tablename__ = 'druggable_interactor_relations'
     id = Column(Integer, primary_key=True)
 
@@ -42,6 +46,8 @@ class Druggable(MetaClass, Base):
 
 
 class General(MetaClass, Base):
+    """General table definitions."""
+
     __tablename__ = 'general'
     id = Column(Integer, primary_key=True)
 
@@ -59,6 +65,8 @@ class General(MetaClass, Base):
 
 
 class Patents(MetaClass, Base):
+    """Patents table definitions."""
+
     __tablename__ = 'patents'
     id = Column(Integer, primary_key=True)
 
@@ -68,6 +76,8 @@ class Patents(MetaClass, Base):
 
 
 class Products(MetaClass, Base):
+    """Products table definitions."""
+
     __tablename__ = 'products'
     id = Column(Integer, primary_key=True)
 
@@ -79,6 +89,8 @@ class Products(MetaClass, Base):
 
 
 class Trials(MetaClass, Base):
+    """Clinical trials table definitions."""
+
     __tablename__ = 'trials'
     id = Column(Integer, primary_key=True, index=True)
 
@@ -89,6 +101,8 @@ class Trials(MetaClass, Base):
 
 
 class TargetStats(MetaClass, Base):
+    """Target statistic table definitions."""
+
     __tablename__ = 'target_stats'
     id = Column(Integer, primary_key=True)
 
@@ -99,6 +113,8 @@ class TargetStats(MetaClass, Base):
 
 
 class Drugs(MetaClass, Base):
+    """Drugs table definitions."""
+
     __tablename__ = 'drugs'
     id = Column(Integer, primary_key=True, index=True)
 
@@ -112,6 +128,8 @@ class Drugs(MetaClass, Base):
 
 
 class BioAssays(MetaClass, Base):
+    """BioAssay table definitions."""
+
     __tablename__ = 'bioassays'
     id = Column(Integer, primary_key=True)
 

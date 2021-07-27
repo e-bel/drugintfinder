@@ -14,10 +14,10 @@ logger.setLevel(logging.DEBUG)
 
 
 class InteractorFinder:
-    """finds the different types of interactors (directly linked nodes) for a given node symbol and protein
-    specification."""
+    """Find the different types of interactors for a given node symbol and protein specification."""
 
     def __init__(self, symbol: str, pmods: list = None, edge: str = 'E'):
+        """Init method for InteractorFinder class."""
         self.names = list({symbol, symbol.upper(), symbol.lower(), symbol.capitalize()})
         self.pmods = pmods
         self.edge = edge
@@ -42,7 +42,7 @@ class InteractorFinder:
             return results
 
     def __query_db(self, node_type: str, druggable: bool = False):
-        """Checks if query results are stored in cache."""
+        """Check if query results are stored in cache."""
         target = self.names[0].upper()  # Target symbol upper case for humans
         if druggable:
             rels = EDGE_MAPPER['causal']
@@ -66,7 +66,7 @@ class InteractorFinder:
         return filtered_df if not filtered_df.empty else None
 
     def find_interactors(self, target_type: str = 'protein', print_sql: bool = False) -> pd.DataFrame:
-        """Returns interactors of the target.
+        """Return interactors of the target.
 
         Parameters
         ----------
@@ -118,8 +118,9 @@ class InteractorFinder:
         return self.results
 
     def druggable_interactors(self, print_sql: bool = False) -> pd.DataFrame:
-        """Returns all druggable interactors of the target. Requires specialized queries and therefore is separate from
-        `find_interactors`.
+        """Return all druggable interactors of the target.
+
+        Requires specialized queries and therefore is separate from `find_interactors`.
 
         Parameters
         ----------
@@ -183,22 +184,23 @@ class InteractorFinder:
         return self.results
 
     def drug_and_interactors(self):
-        """Returns a list of interactors and the drugs that affect them."""
+        """Return a list of interactors and the drugs that affect them."""
         if self.results is not None and 'drug' in self.results.columns:
             return self.results[['drug', 'interactor_name']]
 
     def unique_interactors(self):
-        """Returns a list of unique interactors found in the results dataframe."""
+        """Return a list of unique interactors found in the results dataframe."""
         if self.results is not None:
             return tuple(self.results['interactor_name'].unique())
 
     def unique_drugs(self):
-        """Returns a list of unique drugs found in the results dataframe."""
+        """Return a list of unique drugs found in the results dataframe."""
         if self.results is not None:
             return tuple(self.results['drug'].unique())
 
 
 def get_interactor_list(results_df: pd.DataFrame):
+    """Collect interactors from InteractorFinder results."""
     interactors = set()
     for gene_list in results_df.interactor_involved_genes:
         if gene_list is not None:
