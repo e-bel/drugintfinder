@@ -1,4 +1,4 @@
-Druggable Interactor Finder |build| |coverage| |docs|
+Druggable Interactor Finder |build| |docs|
 ==============================================================
 
 A pipeline for identifying the most notable druggable interactors of a target within a e(BE:L) generated
@@ -6,7 +6,7 @@ Knowledge Graph.
 
 
 Installation |pypi_version| |python_versions| |pypi_license|
-------------------------------------------------------
+------------------------------------------------------------
 
 .. code-block:: sh
 
@@ -44,9 +44,6 @@ and thus comes with no warranty or guarantee of maintenance or support.
 
 .. |pypi| image:: https://img.shields.io/pypi/v/drugintfinder.svg
         :target: https://pypi.python.org/pypi/drugintfinder
-
-.. |travis| image:: https://img.shields.io/travis/e-bel/drugintfinder.svg
-        :target: https://travis-ci.org/cebel/drugintfinder
 
 .. |docs| image:: https://readthedocs.org/projects/drugintfinder/badge/?version=latest
         :target: https://drugintfinder.readthedocs.io/en/latest/?badge=latest
