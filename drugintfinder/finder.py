@@ -182,16 +182,6 @@ class InteractorFinder:
 
         return self.results
 
-    def export(self, file_path: str):
-        """Exports results dataframe to path."""
-
-        if self.results is None:
-            logger.warning("No results found! Failed to export.")
-
-        else:
-            self.results.to_excel(file_path, index=False)
-            logger.info(f"Results written to {file_path}")
-
     def drug_and_interactors(self):
         """Returns a list of interactors and the drugs that affect them."""
         if self.results is not None and 'drug' in self.results.columns:
