@@ -44,7 +44,7 @@ EDGE_MAPPER = {
     'other': OTHER,
     'genomic': GENOMIC,
     'compiler': COMPILER,
-    'E': ALL
+    'E': ALL,
 }
 
 CT_MAPPER = {
@@ -65,7 +65,7 @@ CT_MAPPER = {
         "Withheld",
         "Not yet recruiting",
         "Temporarily not available",
-    ]
+    ],
 }
 
 ACTION_MAPPER = {'activator': POSREG,

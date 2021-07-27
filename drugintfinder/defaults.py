@@ -2,8 +2,8 @@
 
 import os
 import logging
-
 from pathlib import Path
+
 from ebel_rest import connect
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

@@ -1,5 +1,6 @@
 """Console script for drugintfinder."""
 import sys
+
 import click
 
 from drugintfinder.ranker import Ranker
