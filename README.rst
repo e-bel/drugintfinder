@@ -26,7 +26,13 @@ Finding the direct causal interactors of the phosphorylated MAPT protein which a
 
 .. code-block:: sh
 
-    $ drugintfinder find MAPT -n protein -e causal -m pho -d
+    $ dif find MAPT -n protein -e causal -m pho -d
+
+Creating a table of various parameters for each interactor by which to rank them:
+
+.. code-block:: sh
+
+    $ dif rank MAPT -m pho
 
 
 Disclaimer
