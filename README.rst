@@ -2,7 +2,7 @@ Druggable Interactor Finder |build| |docs|
 ==============================================================
 
 A pipeline for identifying the most notable druggable interactors of a target within a e(BE:L) generated
-Knowledge Graph.
+Knowledge Graph. This feature will be integrated into the e(BE:L) package in the future.
 
 
 Installation |pypi_version| |python_versions| |pypi_license|
