@@ -4,6 +4,7 @@ graft tests
 include docs/Makefile
 include *.txt *.yml LICENSE *.cfg *.ini
 
-recursive-include docs *.py *.rst *.bat *.ipynb
+recursive-include docs *.py *.rst *.bat
+recursive-include notebooks *.ipynb
 
 global-exclude *.py[cod]
