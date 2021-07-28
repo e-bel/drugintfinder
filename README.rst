@@ -45,8 +45,8 @@ and thus comes with no warranty or guarantee of maintenance or support.
 .. |pypi| image:: https://img.shields.io/pypi/v/drugintfinder.svg
         :target: https://pypi.python.org/pypi/drugintfinder
 
-.. |docs| image:: https://readthedocs.org/projects/drugintfinder/badge/?version=latest
-        :target: https://drugintfinder.readthedocs.io/en/latest/?badge=latest
+.. |docs| image:: https://readthedocs.org/projects/druggable-interactor-finder/badge/?version=latest
+        :target: https://druggable-interactor-finder.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
 .. |pypi_license| image:: https://img.shields.io/pypi/l/drugintfinder.svg
