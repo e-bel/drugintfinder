@@ -7,4 +7,4 @@ include *.txt *.yml LICENSE *.cfg *.ini
 recursive-include docs *.py *.rst *.bat
 recursive-include notebooks *.ipynb
 
-global-exclude *.py[cod]
+global-exclude *.py[cod] .ipynb_checkpoints
