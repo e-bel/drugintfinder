@@ -107,7 +107,7 @@ IN_COUNT = "SELECT count(*) as number FROM causal WHERE in.name = '{}' AND in.pu
 OUT_COUNT = """SELECT count(*) as number FROM causal
 WHERE out.name = '{}' AND out.pure = true AND out.@class = 'protein'"""
 
-UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' and pure = true LIMIT 1"
+UNIPROT_ID = "SELECT uniprot.id FROM protein WHERE name = '{}' AND namespace = 'HGNC' and pure = true LIMIT 1"
 
 CLINICAL_TRIALS_COUNT = "SELECT count(*) as trial_count FROM clinical_trial"
 CLINICAL_TRIALS_DATA = "SELECT overall_status, trial_id, condition, mesh_conditions, drugs_in_trial FROM " \

@@ -24,7 +24,7 @@ def populate():
 
 
 class DrugPopulator:
-    """Populate the associate drug tables."""
+    """Populate the associated drug tables."""
 
     def __init__(self):
         """Init method for DrugPopulator."""

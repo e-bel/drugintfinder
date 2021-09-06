@@ -70,8 +70,9 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
 @click.option('-r', '--reward', default=1, help="Points awarded for passing inspection criteria.")
 @click.option('-p', '--penalty', default=-1, help="Points penalized for failing inspection criteria.")
 @click.option('-o', '--output', default=None, help="Results output path - defaults to Excel.")
+@click.option('-t', '--pivot', is_flag=True, default=False, help="Flag to enable target focused summary results.")
 @click.option('-v', '--verbose', is_flag=True, default=False, help="Flag to print results to STDOUT.")
-def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbose: str):
+def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbose: bool, pivot: bool):
     """Ranks the drug/interactor combos with metadata and returns a summary table.
 
     Parameters
@@ -87,6 +88,8 @@ def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbos
         Number of points to penalize entries that follow desired outcome.
     output: str
         Path to write results to. Currently only supports Excel.
+    pivot: bool
+        Flag to enable target focused summary results.
     verbose: bool
         Flag to print results table to STDOUT.
     """
@@ -95,7 +98,7 @@ def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbos
 
     ranker = Ranker(symbol=symbol, pmods=pmods, reward=int(reward), penalty=int(penalty))
     ranker.rank()
-    summary = ranker.summarize()
+    summary = ranker.summarize(pivot=pivot)
 
     if output:
         export_table(summary, output)

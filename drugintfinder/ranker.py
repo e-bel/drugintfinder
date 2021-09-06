@@ -519,8 +519,7 @@ class Ranker:
 
         return counts
 
-    def summarize(self) -> pd.DataFrame:
-        """Summarize the ranking results."""
+    def __create_summary_table(self) -> pd.DataFrame:
         rows = []
         for drug_name, symbol in self.unique_drug_target_combos:
             drug_entry = self.drug_scores[drug_name]
@@ -557,3 +556,30 @@ class Ranker:
             rows.append(row)
 
         return pd.DataFrame(rows)
+
+    def summarize(self, pivot: bool = False) -> pd.DataFrame:
+        """Summarize the ranking results.
+
+        Be default, the summarized table is compiled into rows of unique drug/targets. If `pivot` is enabled, the
+        table instead focuses on the targets and the columns adjust accordingly.
+
+        :param pivot: If True, drugs are compressed into a new column and table now focuses on targets.
+        :return: pd.DataFrame os summary results.
+        """
+        summary_df = self.__create_summary_table()
+
+        if pivot:
+            num_drugs_mapper = summary_df.Target.value_counts()
+            summary_df = summary_df.drop([
+                'Drug',
+                'Synergizes',
+                'Drug Patent Ongoing',
+                'Generic Version of Drug Available',
+                'Number of Drug Targets'
+            ], axis=1).drop_duplicates().reset_index(drop=True)
+            summary_df["Number of Known Drugs"] = [num_drugs_mapper[target] for target in summary_df.Target]
+            summary_df["BioAssay to Known Drug Ratio"] = \
+                summary_df["Number of BioAssays for Target"] / summary_df["Number of Known Drugs"]
+            summary_df = summary_df.sort_values(by="Number of BioAssays for Target", ascending=False)
+
+        return summary_df

@@ -5,6 +5,7 @@ import pandas as pd
 from typing import Optional
 from ebel_rest import query as rest_query
 
+from drugintfinder.populate import populate
 from drugintfinder.defaults import session, engine
 from drugintfinder.models import General, Druggable
 from drugintfinder.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY, EDGE_MAPPER
@@ -18,6 +19,8 @@ class InteractorFinder:
 
     def __init__(self, symbol: str, pmods: list = None, edge: str = 'E'):
         """Init method for InteractorFinder class."""
+        populate()  # Populate tables if empty
+
         self.names = list({symbol, symbol.upper(), symbol.lower(), symbol.capitalize()})
         self.pmods = pmods
         self.edge = edge

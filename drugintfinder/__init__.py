@@ -1,5 +1,4 @@
-"""A pipeline for identifying the most notable druggable interactors of a target within a e(BE:L) generated
-Knowledge Graph.
+"""A pipeline for identifying the most notable druggable interactors of a target within a e(BE:L) Knowledge Graph.
 
 This package is designed for identifying the direct interactors of a specified node within an e(BE:L) generated
 Knowledge Graph. The starting node can be filtered by given protein modifications and the type of interactors
