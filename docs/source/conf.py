@@ -29,7 +29,7 @@ author = "Bruce Schultz"
 version = '0.1'
 
 # The full version, including alpha/beta/rc tags.
-release = '0.2.0'
+release = '0.2.1'
 
 language = None
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
