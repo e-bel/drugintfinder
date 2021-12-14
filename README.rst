@@ -1,4 +1,4 @@
-Druggable Interactor Finder |build| |docs|
+Druggable Interactor Finder |build| |docs| |zenodo|
 ==============================================================
 
 A pipeline for identifying the most notable druggable interactors of a target within a e(BE:L) generated
@@ -66,3 +66,6 @@ and thus comes with no warranty or guarantee of maintenance or support.
 .. |build| image:: https://travis-ci.com/e-bel/drugintfinder.svg?branch=master
     :target: https://travis-ci.com/e-bel/drugintfinder
     :alt: Build Status
+    
+.. |zenodo| image:: https://zenodo.org/badge/372590270.svg
+   :target: https://zenodo.org/badge/latestdoi/372590270
