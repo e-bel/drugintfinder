@@ -5,7 +5,7 @@ from drugintfinder.finder import InteractorFinder
 from .constants import MAPT, PROTEIN, PHOSPHORYLATION, CAUSAL
 
 
-finder = InteractorFinder(symbol=MAPT, pmods=[PHOSPHORYLATION], edge=CAUSAL)
+finder = InteractorFinder(node_name=MAPT, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL)
 
 
 class TestInteractorFinder:
@@ -13,7 +13,7 @@ class TestInteractorFinder:
 
     def test_find_interactors(self):
         """Test the find_interactors method."""
-        finder.find_interactors(target_type=PROTEIN)
+        finder.find_interactors(node_type=PROTEIN)
         results = finder.results
 
         assert results is not None

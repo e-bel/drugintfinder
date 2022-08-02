@@ -17,21 +17,49 @@ logger.setLevel(logging.DEBUG)
 class InteractorFinder:
     """Find the different types of interactors for a given node symbol and protein specification."""
 
-    def __init__(self, symbol: str, pmods: list = None, edge: str = 'E'):
-        """Init method for InteractorFinder class."""
+    def __init__(
+            self,
+            node_name: str,
+            node_type: str = 'protein',
+            pmods: list = None,
+            neighbor_edge_type: str = 'E',
+            print_sql: bool = False
+    ):
+        """Init method for InteractorFinder class.
+        
+        Parameters
+        ----------
+        node_name : str
+            Value of target node for which you want to find interactors for. This could be a gene symbol, disease name,
+            or any other accepted BEL value.
+        node_type : str
+            Specify the type of node the target is. Defaults to "protein", but can be any BEL node type.
+        pmods : list
+            If the target node is a protein, protein modifications can be added to restrict searching to protein nodes
+            with both the given name AND the given pmods. Can use BEL shorthand pmods (e.g. "pho", "ace", "me0") or
+            pmod values (e.g. "protein phosphorylation").
+        neighbor_edge_type : str
+            The class of edges to consider when looking for interactors. Defaults to "E" which encompasses all edges
+            types, but more specific classes can be given such as only BEL edge types ("bel"), causal edges "causal",
+            or "increases"/"directly_increases".
+        print_sql : bool
+            If True, will print each query as it is executed in OrientDB.
+        """
         populate()  # Populate tables if empty
 
-        self.names = list({symbol, symbol.upper(), symbol.lower(), symbol.capitalize()})
+        self.node_name = node_name.lower()
+        self.node_type = node_type
         self.pmods = pmods
-        self.edge = edge
+        self.edge = neighbor_edge_type
+        self.print_sql = print_sql
+
         self.results = None
 
     def __len__(self):
         return len(self.results)
 
-    @staticmethod
-    def __query_graphstore(sql: str, print_sql: bool = False) -> Optional[pd.DataFrame]:
-        if print_sql:
+    def __query_graphstore(self, sql: str) -> Optional[pd.DataFrame]:
+        if self.print_sql:
             print(sql)
 
         logger.warning("Querying graphstore for interactors - this may take awhile")
@@ -44,9 +72,9 @@ class InteractorFinder:
         else:
             return results
 
-    def __query_db(self, node_type: str, druggable: bool = False):
+    def __query_db(self, druggable: bool = False):
         """Check if query results are stored in cache."""
-        target = self.names[0].upper()  # Target symbol upper case for humans
+        target = self.node_name[0].upper()  # Target symbol upper case for humans
         if druggable:
             rels = EDGE_MAPPER['causal']
 
@@ -58,7 +86,7 @@ class InteractorFinder:
 
         table = Druggable if druggable else General
 
-        query = session().query(table).filter_by(target_symbol=target, target_type=node_type)
+        query = session().query(table).filter_by(target_symbol=target, target_type=self.node_type)
         results = pd.read_sql(query.statement, query.session.bind)
 
         # Filter by edges and pmods
@@ -68,22 +96,18 @@ class InteractorFinder:
 
         return filtered_df if not filtered_df.empty else None
 
-    def find_interactors(self, target_type: str = 'protein', print_sql: bool = False) -> pd.DataFrame:
+    def find_interactors(self) -> pd.DataFrame:
         """Return interactors of the target.
 
         Parameters
         ----------
-        target_type: str
-            Node type to query.
-        print_sql: bool
-            If true, will print the query.
 
         Returns
         -------
         pd.DataFrame
         """
         table = General.__tablename__
-        cached_results = self.__query_db(node_type=target_type, druggable=False)
+        cached_results = self.__query_db(druggable=False)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
 
@@ -93,9 +117,9 @@ class InteractorFinder:
             cols = ["target_species", "pmid", "pmc", "interactor_type", "interactor_name", "interactor_bel",
                     "relation_type", "target_bel", "target_type", "target_symbol", "pmod_type"]
 
-            if target_type != 'protein' or not self.pmods:
+            if self.node_type != 'protein' or not self.pmods:
                 sql = sql.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-                formatted_sql = sql.format(target_type, self.names, self.edge)
+                formatted_sql = sql.format(self.node_type, self.node_name, self.edge)
 
             else:
                 if 'all' in self.pmods:
@@ -107,37 +131,34 @@ class InteractorFinder:
 
                 if 'pho' in self.pmods or 'all' in self.pmods:
                     pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
-                formatted_sql = sql.format(pmod_string, target_type, self.names, self.edge)
+                formatted_sql = sql.format(pmod_string, self.node_type, self.node_name, self.edge)
 
-            df_results = self.__query_graphstore(formatted_sql, print_sql=print_sql)
+            df_results = self.__query_graphstore(formatted_sql)
 
             if df_results is not None:
                 self.results = df_results[cols]
                 self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
 
-                logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
+                logger.info(f"Importing {table} results for {self.node_name[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
         return self.results
 
-    def druggable_interactors(self, print_sql: bool = False) -> pd.DataFrame:
+    def druggable_interactors(self) -> pd.DataFrame:
         """Return all druggable interactors of the target.
 
         Requires specialized queries and therefore is separate from `find_interactors`.
 
         Parameters
         ----------
-        print_sql: bool
-            If true, will print the query.
 
         Returns
         -------
         pd.DataFrame
         """
         table = Druggable.__tablename__
-        target_type = 'protein'  # Druggable means protein target
 
-        cached_results = self.__query_db(node_type=target_type, druggable=True)
+        cached_results = self.__query_db(druggable=True)
         if cached_results is not None and not cached_results.empty:
             self.results = cached_results
 
@@ -150,11 +171,11 @@ class InteractorFinder:
                     'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
                     'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
 
-            if target_type != 'protein' or not self.pmods:
+            if self.node_type != 'protein' or not self.pmods:
                 pure_query = pure_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
                 capsule_query = capsule_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-                formatted_pure_sql = pure_query.format(target_type, self.names)
-                formatted_capsule_sql = capsule_query.format(target_type, self.names)
+                formatted_pure_sql = pure_query.format(self.node_type, self.node_name)
+                formatted_capsule_sql = capsule_query.format(self.node_type, self.node_name)
 
             else:
                 if 'all' in self.pmods:
@@ -168,20 +189,20 @@ class InteractorFinder:
                     pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
                 # Drugs only for humans so only check one
-                formatted_pure_sql = pure_query.format(pmod_string, target_type, [self.names[0].upper()])
-                formatted_capsule_sql = capsule_query.format(pmod_string, target_type, [self.names[0].upper()])
+                formatted_pure_sql = pure_query.format(pmod_string, self.node_type, [self.node_name[0].upper()])
+                formatted_capsule_sql = capsule_query.format(pmod_string, self.node_type, [self.node_name[0].upper()])
 
             logger.info("Querying database...")
 
-            pure_results = self.__query_graphstore(sql=formatted_pure_sql, print_sql=print_sql)
-            capsule_results = self.__query_graphstore(sql=formatted_capsule_sql, print_sql=print_sql)
+            pure_results = self.__query_graphstore(sql=formatted_pure_sql)
+            capsule_results = self.__query_graphstore(sql=formatted_capsule_sql)
 
             if pure_results is not None or capsule_results is not None:  # Only need one to have results
                 df_concat = pd.concat([pure_results, capsule_results], axis=0).reindex(columns=cols)
                 self.results = df_concat[cols]
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
-                logger.info(f"Importing {table} results for {self.names[0].upper()} into SQLite DB")
+                logger.info(f"Importing {table} results for {self.node_name[0].upper()} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
         return self.results
@@ -217,3 +238,10 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
+
+if __name__ == "__main__":
+    finder = InteractorFinder(node_name="Autophagy", node_type="bel", neighbor_edge_type="causal", print_sql=True)
+
+    # Select for matching starting protein nodes (i.e. MAPT protein) and find all interactors
+    neighbors = finder.find_interactors()
+    druggable_ints = finder.druggable_interactors()

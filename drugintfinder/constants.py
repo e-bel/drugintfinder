@@ -122,7 +122,7 @@ DRUG_METADATA = "SELECT id as drugbank_id, name as drug_name, patents as drug_pa
 ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name = '{}' OR in.name = '{}'"
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
-{{class:{}, as:target, WHERE:(name in {})}}
+{{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
 .inE(){{class:{} ,as:relation, where:(@class != 'causes_no_change')}}
 .outV(){{class:bel, as:interactor}}
 RETURN
@@ -140,7 +140,7 @@ target.species as target_species
 """
 
 PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
-        {{class:{}, as:target, WHERE:(name in {})}}
+        {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
         .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
         .outV(){{class:bel, as:interactor}}
         .inE(){{class:has_drug_target, as:drug_rel}}
@@ -167,7 +167,7 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         """
 
 CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
-        {{class:{}, as:target, WHERE:(name in {})}}
+        {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
         .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
         .outV(){{class:bel, as:capsule_interactor}}
         .bothE('has__protein', 'has_modified_protein', 'has_variant_protein',

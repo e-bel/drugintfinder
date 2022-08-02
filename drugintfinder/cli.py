@@ -50,9 +50,9 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    finder = InteractorFinder(symbol=symbol, pmods=pmods, edge=edge)
+    finder = InteractorFinder(node_name=symbol, pmods=pmods, neighbor_edge_type=edge)
     if not druggable:
-        finder.find_interactors(target_type=node, print_sql=sql)
+        finder.find_interactors(node_type=node, print_sql=sql)
 
     else:
         finder.druggable_interactors(print_sql=sql)

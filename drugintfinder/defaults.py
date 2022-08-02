@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Graphstore credentials
 db = 'pharmacome'
-db_user = 'mavo_user'
-db_password = 'mavo'
+db_user = 'guest'
+db_password = 'guest'
 db_server = 'https://graphstore.scai.fraunhofer.de'
 
 connect(db_user, db_password, db_server, db, print_url=False)
