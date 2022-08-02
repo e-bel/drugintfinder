@@ -1,5 +1,6 @@
 """Methods for executing pipeline."""
 import logging
+
 import pandas as pd
 
 from typing import Optional
@@ -8,7 +9,8 @@ from ebel_rest import query as rest_query
 from drugintfinder.populate import populate
 from drugintfinder.defaults import session, engine
 from drugintfinder.models import General, Druggable
-from drugintfinder.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_QUERY, EDGE_MAPPER
+from drugintfinder.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_COMPLEX, \
+    CAPSULE_DRUGGABLE_MODIFIED, EDGE_MAPPER
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -148,19 +150,22 @@ class InteractorFinder:
             self.results = cached_results
 
         else:
-            pure_query = PURE_DRUGGABLE_QUERY
-            capsule_query = CAPSULE_DRUGGABLE_QUERY
-
             cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
                     'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
                     'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
                     'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
 
             if self.node_type != 'protein' or not self.pmods:
-                pure_query = pure_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-                capsule_query = capsule_query.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
+                pure_query = PURE_DRUGGABLE_QUERY.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
+                capsule_query_1 = CAPSULE_DRUGGABLE_MODIFIED.replace(
+                    'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
+                )
+                capsule_query_2 = CAPSULE_DRUGGABLE_COMPLEX.replace(
+                    'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
+                )
                 formatted_pure_sql = pure_query.format(self.node_type, self.node_name)
-                formatted_capsule_sql = capsule_query.format(self.node_type, self.node_name)
+                formatted_capsule_sql_1 = capsule_query_1.format(self.node_type, self.node_name)
+                formatted_capsule_sql_2 = capsule_query_2.format(self.node_type, self.node_name)
 
             else:
                 if 'all' in self.pmods:
@@ -174,17 +179,19 @@ class InteractorFinder:
                     pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
                 # Drugs only for humans so only check one
-                formatted_pure_sql = pure_query.format(pmod_string, self.node_type, self.node_name)
-                formatted_capsule_sql = capsule_query.format(pmod_string, self.node_type, self.node_name)
+                formatted_pure_sql = PURE_DRUGGABLE_QUERY.format(self.node_type, self.node_name)
+                formatted_capsule_sql_1 = CAPSULE_DRUGGABLE_MODIFIED.format(self.node_type, self.node_name)
+                formatted_capsule_sql_2 = CAPSULE_DRUGGABLE_COMPLEX.format(self.node_type, self.node_name)
 
             logger.info("Querying database...")
 
             pure_results = self.__query_graphstore(sql=formatted_pure_sql)
-            capsule_results = self.__query_graphstore(sql=formatted_capsule_sql)
+            capsule_results_1 = self.__query_graphstore(sql=formatted_capsule_sql_1)
+            capsule_results_2 = self.__query_graphstore(sql=formatted_capsule_sql_2)
 
-            if pure_results is not None or capsule_results is not None:  # Only need one to have results
-                df_concat = pd.concat([pure_results, capsule_results], axis=0).reindex(columns=cols)
-                self.results = df_concat[cols]
+            if any([pure_results, capsule_results_1, capsule_results_2]):  # Only need one to have results
+                df_concat = pd.concat([pure_results, capsule_results_1, capsule_results_2], axis=0).reindex(columns=cols)
+                self.results = df_concat[cols].drop_duplicates()
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
                 logger.info(f"Importing {table} results for {self.node_name} into SQLite DB")
@@ -223,3 +230,8 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
+
+if __name__ == "__main__":
+    intf = InteractorFinder(node_name="CD33", pmods=["pho"], print_sql=True)
+    dis = intf.druggable_interactors()
+    dis
