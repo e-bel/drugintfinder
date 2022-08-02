@@ -190,7 +190,9 @@ class InteractorFinder:
             capsule_results_2 = self.__query_graphstore(sql=formatted_capsule_sql_2)
 
             if any([pure_results, capsule_results_1, capsule_results_2]):  # Only need one to have results
-                df_concat = pd.concat([pure_results, capsule_results_1, capsule_results_2], axis=0).reindex(columns=cols)
+                df_concat = pd.concat(
+                    [pure_results, capsule_results_1, capsule_results_2], axis=0
+                ).reindex(columns=cols)
                 self.results = df_concat[cols].drop_duplicates()
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
@@ -230,8 +232,3 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
-
-if __name__ == "__main__":
-    intf = InteractorFinder(node_name="CD33", pmods=["pho"], print_sql=True)
-    dis = intf.druggable_interactors()
-    dis

@@ -8,7 +8,10 @@ from .constants import CD33, PROTEIN, PHOSPHORYLATION, CAUSAL
 
 @pytest.fixture
 def finder():
-    finder = InteractorFinder(node_name=CD33, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL, node_type=PROTEIN, print_sql=True)
+    """Create reusable interactor finder object."""
+    finder = InteractorFinder(
+        node_name=CD33, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL, node_type=PROTEIN, print_sql=True
+    )
     return finder
 
 

@@ -45,7 +45,9 @@ class Ranker:
         self.disease = disease_keyword
         self.similar_diseases = similar_diseases
 
-        self.__finder = InteractorFinder(node_name=symbol, pmods=pmods, neighbor_edge_type='causal', print_sql=print_sql)
+        self.__finder = InteractorFinder(
+            node_name=symbol, pmods=pmods, neighbor_edge_type='causal', print_sql=print_sql
+        )
         self.__finder.druggable_interactors()
         self.table = self.__finder.results
         if self.table is None:
