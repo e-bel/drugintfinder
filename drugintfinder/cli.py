@@ -16,24 +16,24 @@ def main():
 
 
 @main.command()
-@click.argument('symbol')
-@click.option('-n', '--node', default='protein', help="Target node type. Defaults to 'protein'.")
-@click.option('-e', '--edge', default='causal', help="Interactor/target relationship type. Defaults to 'causal'.")
+@click.argument('name')
+@click.option('-n', '--node-type', default='protein', help="Target node type. Defaults to 'protein'.")
+@click.option('-e', '--edge-type', default='causal', help="Interactor/target relationship type. Defaults to 'causal'.")
 @click.option('-m', '--pmods', default=[], help="Comma separated list of acceptable target protein modifications.")
 @click.option('-d', '--druggable', is_flag=True, default=False, help="Flag to enable filtering of druggable ints.")
 @click.option('-s', '--sql', is_flag=True, default=False, help="Flag to print query.")
 @click.option('-o', '--output', default=None, help="Results output path - defaults to Excel.")
 @click.option('-v', '--verbose', is_flag=True, default=False, help="Flag to print results to STDOUT.")
-def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bool, output: str, verbose: bool):
+def find(name: str, node_type: str, edge_type: str, pmods: str, druggable: bool, sql: bool, output: str, verbose: bool):
     """Identify interactors of given target and criteria.
 
     Parameters
     ----------
-    symbol: str
-        Gene symbol of the target node.
-    node: str
+    name: str
+        Gene symbol or namespace value of the target node.
+    node_type: str
         Type of target node to consider (e.g. 'protein', 'rna', 'gene', etc.)
-    edge: str
+    edge_type: str
         Edge type between interactor and target nodes (e.g. 'increases', 'causal', 'correlative', 'E' for all, etc.)
     pmods: str
         Comma separated list of 3-letter target protein modifications. This will filter target node results for those
@@ -50,12 +50,12 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    finder = InteractorFinder(node_name=symbol, pmods=pmods, neighbor_edge_type=edge)
+    finder = InteractorFinder(node_name=name, pmods=pmods, neighbor_edge_type=edge_type, node_type=node_type, print_sql=sql)
     if not druggable:
-        finder.find_interactors(node_type=node, print_sql=sql)
+        finder.find_interactors()
 
     else:
-        finder.druggable_interactors(print_sql=sql)
+        finder.druggable_interactors()
 
     if output:
         export_table(finder.results, output)
@@ -65,20 +65,23 @@ def find(symbol: str, node: str, edge: str, pmods: str, druggable: bool, sql: bo
 
 
 @main.command()
-@click.argument('symbol')
+@click.argument('name')
+@click.option('-n', '--node-type', default='protein', help="Target node type. Defaults to 'protein'.")
 @click.option('-m', '--pmods', default=[], help="Comma separated list of acceptable target protein modifications.")
 @click.option('-r', '--reward', default=1, help="Points awarded for passing inspection criteria.")
 @click.option('-p', '--penalty', default=-1, help="Points penalized for failing inspection criteria.")
 @click.option('-o', '--output', default=None, help="Results output path - defaults to Excel.")
 @click.option('-t', '--pivot', is_flag=True, default=False, help="Flag to enable target focused summary results.")
 @click.option('-v', '--verbose', is_flag=True, default=False, help="Flag to print results to STDOUT.")
-def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbose: bool, pivot: bool):
+def rank(name: str, node_type: str, pmods: str, reward: str, penalty: str, output: str, verbose: bool, pivot: bool):
     """Ranks the drug/interactor combos with metadata and returns a summary table.
 
     Parameters
     ----------
-    symbol: str
-        Gene symbol of the target node.
+    name: str
+        Gene symbol or namespace value of the target node.
+    node_type: str
+        Type of target node to consider (e.g. 'protein', 'rna', 'gene', etc.)
     pmods: str
         Comma separated list of 3-letter target protein modifications. This will filter target node results for those
         with specified pmods.
@@ -96,7 +99,7 @@ def rank(symbol: str, pmods: str, reward: str, penalty: str, output: str, verbos
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    ranker = Ranker(symbol=symbol, pmods=pmods, reward=int(reward), penalty=int(penalty))
+    ranker = Ranker(name=name, node_type=node_type, pmods=pmods, reward=int(reward), penalty=int(penalty))
     ranker.rank()
     summary = ranker.summarize(pivot=pivot)
 

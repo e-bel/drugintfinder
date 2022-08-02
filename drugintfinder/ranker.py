@@ -27,7 +27,8 @@ class Ranker:
 
     def __init__(
             self,
-            symbol: str,
+            name: str,
+            node_type: str = "protein",
             pmods: list = None,
             penalty: int = -1,
             reward: int = 1,
@@ -40,18 +41,18 @@ class Ranker:
         Should be initialized with an InteractorFinder object that has results saved.
         """
         self.__session = session()
-        self.symbol = symbol
+        self.node_name = name
         self.pmods = pmods
         self.disease = disease_keyword
         self.similar_diseases = similar_diseases
 
         self.__finder = InteractorFinder(
-            node_name=symbol, pmods=pmods, neighbor_edge_type='causal', print_sql=print_sql
+            node_name=name, node_type=node_type, pmods=pmods, neighbor_edge_type='causal', print_sql=print_sql
         )
         self.__finder.druggable_interactors()
         self.table = self.__finder.results
         if self.table is None:
-            raise ValueError(f"No druggable interactors were found for {self.symbol} + {self.pmods}")
+            raise ValueError(f"No druggable interactors were found for {self.node_name} + {self.pmods}")
 
         self.__penalty = penalty
         self.__reward = reward
