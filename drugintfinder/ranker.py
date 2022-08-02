@@ -25,8 +25,16 @@ logger.setLevel(logging.DEBUG)
 class Ranker:
     """Rank and annotate druggable interactors identified using the InteractorFinder class."""
 
-    def __init__(self, symbol: str, pmods: list = None, penalty: int = -1, reward: int = 1,
-                 disease_keyword: str = "Alzheimer Disease", similar_diseases: list = SIMILAR_DISEASES):
+    def __init__(
+            self,
+            symbol: str,
+            pmods: list = None,
+            penalty: int = -1,
+            reward: int = 1,
+            disease_keyword: str = "Alzheimer Disease",
+            similar_diseases: list = SIMILAR_DISEASES,
+            print_sql: bool = False
+    ):
         """Init for Ranker.
 
         Should be initialized with an InteractorFinder object that has results saved.
@@ -37,7 +45,7 @@ class Ranker:
         self.disease = disease_keyword
         self.similar_diseases = similar_diseases
 
-        self.__finder = InteractorFinder(node_name=symbol, pmods=pmods, neighbor_edge_type='causal')
+        self.__finder = InteractorFinder(node_name=symbol, pmods=pmods, neighbor_edge_type='causal', print_sql=print_sql)
         self.__finder.druggable_interactors()
         self.table = self.__finder.results
         if self.table is None:

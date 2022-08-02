@@ -26,7 +26,7 @@ class InteractorFinder:
             print_sql: bool = False
     ):
         """Init method for InteractorFinder class.
-        
+
         Parameters
         ----------
         node_name : str
@@ -74,7 +74,7 @@ class InteractorFinder:
 
     def __query_db(self, druggable: bool = False):
         """Check if query results are stored in cache."""
-        target = self.node_name[0].upper()  # Target symbol upper case for humans
+        target = self.node_name.upper()  # Target symbol upper case for humans
         if druggable:
             rels = EDGE_MAPPER['causal']
 
@@ -97,15 +97,7 @@ class InteractorFinder:
         return filtered_df if not filtered_df.empty else None
 
     def find_interactors(self) -> pd.DataFrame:
-        """Return interactors of the target.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        pd.DataFrame
-        """
+        """Return interactors of the target."""
         table = General.__tablename__
         cached_results = self.__query_db(druggable=False)
         if cached_results is not None and not cached_results.empty:
@@ -139,7 +131,7 @@ class InteractorFinder:
                 self.results = df_results[cols]
                 self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
 
-                logger.info(f"Importing {table} results for {self.node_name[0].upper()} into SQLite DB")
+                logger.info(f"Importing {table} results for {self.node_name} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
         return self.results
@@ -148,13 +140,6 @@ class InteractorFinder:
         """Return all druggable interactors of the target.
 
         Requires specialized queries and therefore is separate from `find_interactors`.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        pd.DataFrame
         """
         table = Druggable.__tablename__
 
@@ -189,8 +174,8 @@ class InteractorFinder:
                     pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
                 # Drugs only for humans so only check one
-                formatted_pure_sql = pure_query.format(pmod_string, self.node_type, [self.node_name[0].upper()])
-                formatted_capsule_sql = capsule_query.format(pmod_string, self.node_type, [self.node_name[0].upper()])
+                formatted_pure_sql = pure_query.format(pmod_string, self.node_type, self.node_name)
+                formatted_capsule_sql = capsule_query.format(pmod_string, self.node_type, self.node_name)
 
             logger.info("Querying database...")
 
@@ -202,7 +187,7 @@ class InteractorFinder:
                 self.results = df_concat[cols]
                 self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
 
-                logger.info(f"Importing {table} results for {self.node_name[0].upper()} into SQLite DB")
+                logger.info(f"Importing {table} results for {self.node_name} into SQLite DB")
                 self.results.to_sql(table, if_exists="append", con=engine, index=False)
 
         return self.results
@@ -238,10 +223,3 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
-
-if __name__ == "__main__":
-    finder = InteractorFinder(node_name="Autophagy", node_type="bel", neighbor_edge_type="causal", print_sql=True)
-
-    # Select for matching starting protein nodes (i.e. MAPT protein) and find all interactors
-    neighbors = finder.find_interactors()
-    druggable_ints = finder.druggable_interactors()

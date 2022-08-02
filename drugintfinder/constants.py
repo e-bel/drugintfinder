@@ -170,9 +170,9 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
         .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
         .outV(){{class:bel, as:capsule_interactor}}
-        .bothE('has__protein', 'has_modified_protein', 'has_variant_protein',
+        .both('has__protein', 'has_modified_protein', 'has_variant_protein',
         'has_located_protein', 'has_fragmented_protein')
-        .bothV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}
+        .both(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}
         .inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}
         RETURN
