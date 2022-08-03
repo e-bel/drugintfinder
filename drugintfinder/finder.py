@@ -25,7 +25,7 @@ class InteractorFinder:
             node_type: str = 'protein',
             pmods: list = None,
             neighbor_edge_type: str = 'E',
-            neighbor_edge_filters: list = [],
+            neighbor_edge_filters: list = None,
             print_sql: bool = False
     ):
         """Init method for InteractorFinder class.
