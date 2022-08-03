@@ -592,9 +592,3 @@ class Ranker:
             summary_df = summary_df.sort_values(by="Number of BioAssays for Target", ascending=False)
 
         return summary_df
-
-if __name__ == "__main__":
-    ranker = Ranker(name="MAPT", pmods=["pho"], print_sql=False)
-    ranker.rank()
-    summary = ranker.summarize()
-    assert len(summary) >= 847

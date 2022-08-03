@@ -24,7 +24,9 @@ def main():
 @click.option('-s', '--sql', is_flag=True, default=False, help="Flag to print query.")
 @click.option('-o', '--output', default=None, help="Results output path - defaults to Excel.")
 @click.option('-v', '--verbose', is_flag=True, default=False, help="Flag to print results to STDOUT.")
-def find(name: str, node_type: str, edge_type: str, pmods: str, druggable: bool, sql: bool, output: str, verbose: bool):
+def find(
+        name: str, node_type: str, edge_type: str, pmods: str, druggable: bool, sql: bool, output: str, verbose: bool
+):
     """Identify interactors of given target and criteria.
 
     Parameters
@@ -50,7 +52,9 @@ def find(name: str, node_type: str, edge_type: str, pmods: str, druggable: bool,
     if isinstance(pmods, str):
         pmods = pmods.split(",")
 
-    finder = InteractorFinder(node_name=name, pmods=pmods, neighbor_edge_type=edge_type, node_type=node_type, print_sql=sql)
+    finder = InteractorFinder(
+        node_name=name, pmods=pmods, neighbor_edge_type=edge_type, node_type=node_type, print_sql=sql
+    )
     if not druggable:
         finder.find_interactors()
 
