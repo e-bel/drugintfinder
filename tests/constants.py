@@ -1,6 +1,7 @@
 """Test string constants."""
 
 MAPT = "MAPT"
-PROTEIN = "PROTEIN"
+CD33 = "CD33"
+PROTEIN = "protein"
 CAUSAL = "causal"
 PHOSPHORYLATION = "pho"

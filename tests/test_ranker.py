@@ -5,7 +5,7 @@ from drugintfinder.ranker import Ranker
 from .constants import MAPT, PHOSPHORYLATION
 
 
-ranker = Ranker(symbol=MAPT, pmods=[PHOSPHORYLATION])
+ranker = Ranker(name=MAPT, pmods=[PHOSPHORYLATION], print_sql=True)
 
 
 class TestRanker:

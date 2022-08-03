@@ -166,14 +166,20 @@ PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         drug_rel.actions as drug_rel_actions
         """
 
-CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
+CAPSULE_PREFIX = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
         .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
         .outV(){{class:bel, as:capsule_interactor}}
-        .bothE('has__protein', 'has_modified_protein', 'has_variant_protein',
-        'has_located_protein', 'has_fragmented_protein')
-        .bothV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}
-        .inE(){{class:has_drug_target, as:drug_rel}}
+"""
+
+CAPSULE_MODIFIED_PROTEIN = """
+.inE('has_modified_protein', 'has_variant_protein', 'has_located_protein', 'has_fragmented_protein')
+.outV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}"""
+
+CAPSULE_HAS_PROTEIN = """.outE('has__protein')
+.inV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}"""
+
+CAPSULE_SUFFIX = """.inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}
         RETURN
         pmod.type as pmod_type,
@@ -197,3 +203,6 @@ CAPSULE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         drug_rel.@rid.asString() as drug_rel_rid,
         drug_rel.actions as drug_rel_actions
         """
+
+CAPSULE_DRUGGABLE_MODIFIED = CAPSULE_PREFIX + CAPSULE_MODIFIED_PROTEIN + CAPSULE_SUFFIX
+CAPSULE_DRUGGABLE_COMPLEX = CAPSULE_PREFIX + CAPSULE_HAS_PROTEIN + CAPSULE_SUFFIX

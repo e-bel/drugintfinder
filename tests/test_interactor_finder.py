@@ -1,38 +1,45 @@
 """Tests for `InteractorFinder` class."""
 import pandas as pd
+import pytest
 
 from drugintfinder.finder import InteractorFinder
-from .constants import MAPT, PROTEIN, PHOSPHORYLATION, CAUSAL
+from .constants import CD33, PROTEIN, PHOSPHORYLATION, CAUSAL
 
 
-finder = InteractorFinder(node_name=MAPT, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL)
+@pytest.fixture
+def finder():
+    """Create reusable interactor finder object."""
+    finder = InteractorFinder(
+        node_name=CD33, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL, node_type=PROTEIN, print_sql=True
+    )
+    return finder
 
 
 class TestInteractorFinder:
     """Tests for the InteractorFinder class."""
 
-    def test_find_interactors(self):
+    def test_find_interactors(self, finder):
         """Test the find_interactors method."""
-        finder.find_interactors(node_type=PROTEIN)
+        finder.find_interactors()
         results = finder.results
 
         assert results is not None
         assert isinstance(results, pd.DataFrame)
-        assert len(results) > 1500
+        assert len(results) >= 11
 
         expected_cols = ["target_species", "pmid", "pmc", "interactor_type", "interactor_name", "interactor_bel",
                          "relation_type", "target_bel", "target_type", "target_symbol", "pmod_type"]
 
         assert all([col in results.columns for col in expected_cols])
 
-    def test_druggable_interactors(self):
+    def test_druggable_interactors(self, finder):
         """Test the druggable_interactors method."""
         finder.druggable_interactors()
         results = finder.results
 
         assert results is not None
         assert isinstance(results, pd.DataFrame)
-        assert len(results) > 57000
+        assert len(results) > 4500
 
         expected_cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel',
                          'interactor_type', 'interactor_name', 'relation_type', 'target_bel', 'target_symbol',
@@ -41,18 +48,18 @@ class TestInteractorFinder:
 
         assert all([col in results.columns for col in expected_cols])
 
-    def test_unique_interactors(self):
+    def test_unique_interactors(self, finder):
         """Test the unique_interactors method."""
         finder.druggable_interactors()
 
         ui = finder.unique_interactors()
         assert isinstance(ui, tuple)
-        assert len(ui) == 80
+        assert len(ui) >= 80
 
-    def test_unique_drugs(self):
+    def test_unique_drugs(self, finder):
         """Test the unique_drugs method."""
         finder.druggable_interactors()
 
         ud = finder.unique_drugs()
         assert isinstance(ud, tuple)
-        assert len(ud) == 670
+        assert len(ud) >= 577
