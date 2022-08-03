@@ -123,7 +123,7 @@ ASSOCIATED_PATHWAYS = "SELECT count(*) FROM pathway_interaction WHERE out.name =
 
 INTERACTOR_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
 {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
-.inE(){{class:{} ,as:relation, where:(@class != 'causes_no_change')}}
+.inE(){{class:{} ,as:relation, where:(@class != 'causes_no_change'{})}}
 .outV(){{class:bel, as:interactor}}
 RETURN
 pmod.type as pmod_type,
@@ -141,7 +141,7 @@ target.species as target_species
 
 PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
         {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
-        .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
+        .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change'{})}}
         .outV(){{class:bel, as:interactor}}
         .inE(){{class:has_drug_target, as:drug_rel}}
         .outV(){{class:drug, as:drug}}

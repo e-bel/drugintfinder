@@ -25,6 +25,7 @@ class InteractorFinder:
             node_type: str = 'protein',
             pmods: list = None,
             neighbor_edge_type: str = 'E',
+            neighbor_edge_filters: list = None,
             print_sql: bool = False
     ):
         """Init method for InteractorFinder class.
@@ -53,6 +54,7 @@ class InteractorFinder:
         self.node_type = node_type
         self.pmods = pmods
         self.edge = neighbor_edge_type
+        self.edge_filters = " AND " + " AND ".join(neighbor_edge_filters)
         self.print_sql = print_sql
 
         self.results = None
@@ -64,7 +66,6 @@ class InteractorFinder:
         if self.print_sql:
             print(sql)
 
-        logger.warning("Querying graphstore for interactors - this may take awhile")
         results = rest_query.sql(sql).table
 
         if isinstance(results, str):
@@ -76,6 +77,7 @@ class InteractorFinder:
 
     def __query_db(self, druggable: bool = False):
         """Check if query results are stored in cache."""
+        # TODO remove if not used again soon
         target = self.node_name.upper()  # Target symbol upper case for humans
         if druggable:
             rels = EDGE_MAPPER['causal']
@@ -100,41 +102,36 @@ class InteractorFinder:
 
     def find_interactors(self) -> pd.DataFrame:
         """Return interactors of the target."""
-        table = General.__tablename__
-        cached_results = self.__query_db(druggable=False)
-        if cached_results is not None and not cached_results.empty:
-            self.results = cached_results
+        edge_filter = self.edge_filters if self.edge_filters else ""
+
+        sql = INTERACTOR_QUERY
+
+        cols = ["target_species", "pmid", "pmc", "interactor_type", "interactor_name", "interactor_bel",
+                "relation_type", "target_bel", "target_type", "target_symbol", "pmod_type"]
+
+        if self.node_type != 'protein' or not self.pmods:
+            sql = sql.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
+            formatted_sql = sql.format(self.node_type, self.node_name, self.edge, edge_filter)
 
         else:
-            sql = INTERACTOR_QUERY
-
-            cols = ["target_species", "pmid", "pmc", "interactor_type", "interactor_name", "interactor_bel",
-                    "relation_type", "target_bel", "target_type", "target_symbol", "pmod_type"]
-
-            if self.node_type != 'protein' or not self.pmods:
-                sql = sql.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-                formatted_sql = sql.format(self.node_type, self.node_name, self.edge)
+            if 'all' in self.pmods:
+                pmod_condition = "type != '' or name != ''"
 
             else:
-                if 'all' in self.pmods:
-                    pmod_condition = "type != '' or name != ''"
-                else:
-                    pmod_condition = f"type in {self.pmods}"
+                pmod_condition = f"type in {self.pmods}"
 
-                pmod_string = f", WHERE:({pmod_condition})"
+            pmod_string = f", WHERE:({pmod_condition})"
 
-                if 'pho' in self.pmods or 'all' in self.pmods:
-                    pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
-                formatted_sql = sql.format(pmod_string, self.node_type, self.node_name, self.edge)
+            if 'pho' in self.pmods or 'all' in self.pmods:
+                pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
-            df_results = self.__query_graphstore(formatted_sql)
+            formatted_sql = sql.format(pmod_string, self.node_type, self.node_name, self.edge, edge_filter)
 
-            if df_results is not None:
-                self.results = df_results[cols]
-                self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
+        df_results = self.__query_graphstore(formatted_sql)
 
-                logger.info(f"Importing {table} results for {self.node_name} into SQLite DB")
-                self.results.to_sql(table, if_exists="append", con=engine, index=False)
+        if df_results is not None:
+            self.results = df_results[cols]
+            self.results['target_species'] = self.results['target_species'].fillna(0).astype(int)
 
         return self.results
 
@@ -143,61 +140,62 @@ class InteractorFinder:
 
         Requires specialized queries and therefore is separate from `find_interactors`.
         """
-        table = Druggable.__tablename__
+        edge_filter = self.edge_filters if self.edge_filters else ""
 
-        cached_results = self.__query_db(druggable=True)
-        if cached_results is not None and not cached_results.empty:
-            self.results = cached_results
+        cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
+                'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
+                'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
+                'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
+
+        if self.node_type != 'protein' or not self.pmods:
+            pure_query = PURE_DRUGGABLE_QUERY.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
+            capsule_query_1 = CAPSULE_DRUGGABLE_MODIFIED.replace(
+                'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
+            )
+            capsule_query_2 = CAPSULE_DRUGGABLE_COMPLEX.replace(
+                'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
+            )
+            formatted_pure_sql = pure_query.format(self.node_type, self.node_name, edge_filter)
+            formatted_capsule_sql_1 = capsule_query_1.format(self.node_type, self.node_name, edge_filter)
+            formatted_capsule_sql_2 = capsule_query_2.format(self.node_type, self.node_name, edge_filter)
 
         else:
-            cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
-                    'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
-                    'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
-                    'drugbank_id', 'chembl_id', 'pubchem_id', 'pmod_type']
-
-            if self.node_type != 'protein' or not self.pmods:
-                pure_query = PURE_DRUGGABLE_QUERY.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-                capsule_query_1 = CAPSULE_DRUGGABLE_MODIFIED.replace(
-                    'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
-                )
-                capsule_query_2 = CAPSULE_DRUGGABLE_COMPLEX.replace(
-                    'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
-                )
-                formatted_pure_sql = pure_query.format(self.node_type, self.node_name)
-                formatted_capsule_sql_1 = capsule_query_1.format(self.node_type, self.node_name)
-                formatted_capsule_sql_2 = capsule_query_2.format(self.node_type, self.node_name)
-
+            if 'all' in self.pmods:
+                pmod_condition = "type != '' or name != ''"
             else:
-                if 'all' in self.pmods:
-                    pmod_condition = "type != '' or name != ''"
-                else:
-                    pmod_condition = f"type in {self.pmods}"
+                pmod_condition = f"type in {self.pmods}"
 
-                pmod_string = f", WHERE:({pmod_condition})"
+            pmod_string = f", WHERE:({pmod_condition})"
 
-                if 'pho' in self.pmods or 'all' in self.pmods:
-                    pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
+            if 'pho' in self.pmods or 'all' in self.pmods:
+                pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
-                # Drugs only for humans so only check one
-                formatted_pure_sql = PURE_DRUGGABLE_QUERY.format(self.node_type, self.node_name)
-                formatted_capsule_sql_1 = CAPSULE_DRUGGABLE_MODIFIED.format(self.node_type, self.node_name)
-                formatted_capsule_sql_2 = CAPSULE_DRUGGABLE_COMPLEX.format(self.node_type, self.node_name)
+            # Drugs only for humans so only check one
+            formatted_pure_sql = PURE_DRUGGABLE_QUERY.format(
+                pmod_string, self.node_type, self.node_name, edge_filter
+            )
+            formatted_capsule_sql_1 = CAPSULE_DRUGGABLE_MODIFIED.format(
+                pmod_string, self.node_type, self.node_name, edge_filter
+            )
+            formatted_capsule_sql_2 = CAPSULE_DRUGGABLE_COMPLEX.format(
+                pmod_string, self.node_type, self.node_name, edge_filter
+            )
 
-            logger.info("Querying database...")
+        logger.info("Querying database...")
 
-            pure_results = self.__query_graphstore(sql=formatted_pure_sql)
-            capsule_results_1 = self.__query_graphstore(sql=formatted_capsule_sql_1)
-            capsule_results_2 = self.__query_graphstore(sql=formatted_capsule_sql_2)
+        pure_results = self.__query_graphstore(sql=formatted_pure_sql)
+        capsule_results_1 = self.__query_graphstore(sql=formatted_capsule_sql_1)
+        capsule_results_2 = self.__query_graphstore(sql=formatted_capsule_sql_2)
 
-            if any([pure_results, capsule_results_1, capsule_results_2]):  # Only need one to have results
-                df_concat = pd.concat(
-                    [pure_results, capsule_results_1, capsule_results_2], axis=0
-                ).reindex(columns=cols)
-                self.results = df_concat[cols].drop_duplicates()
-                self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
+        results_check = [x is not None for x in (pure_results, capsule_results_1, capsule_results_2)]
 
-                logger.info(f"Importing {table} results for {self.node_name} into SQLite DB")
-                self.results.to_sql(table, if_exists="append", con=engine, index=False)
+        if any(results_check):  # Need only 1 not to be None
+            df_concat = pd.concat(
+                [pure_results, capsule_results_1, capsule_results_2], axis=0
+            ).reindex(columns=cols)
+            self.results = df_concat[cols]
+            self.results["drug_rel_actions"] = self.results["drug_rel_actions"].str.join("|")
+            self.results = self.results.drop_duplicates()
 
         return self.results
 
@@ -232,3 +230,16 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
+
+if __name__ == "__main__":
+    finder = InteractorFinder(
+        node_name="MAPT",
+        node_type="protein",
+        neighbor_edge_type="causal",
+        print_sql=True,
+        neighbor_edge_filters=["autophagy=true"],
+        pmods=["pho"]
+    )
+    neighbors = finder.find_interactors()
+    druggables = finder.druggable_interactors()
+    a = 2
