@@ -7,7 +7,7 @@ from typing import Optional
 from ebel_rest import query as rest_query
 
 from drugintfinder.populate import populate
-from drugintfinder.defaults import session, engine
+from drugintfinder.defaults import session
 from drugintfinder.models import General, Druggable
 from drugintfinder.constants import INTERACTOR_QUERY, PURE_DRUGGABLE_QUERY, CAPSULE_DRUGGABLE_COMPLEX, \
     CAPSULE_DRUGGABLE_MODIFIED, EDGE_MAPPER
@@ -25,7 +25,7 @@ class InteractorFinder:
             node_type: str = 'protein',
             pmods: list = None,
             neighbor_edge_type: str = 'E',
-            neighbor_edge_filters: list = None,
+            neighbor_edge_filters: list = [],
             print_sql: bool = False
     ):
         """Init method for InteractorFinder class.
@@ -54,7 +54,7 @@ class InteractorFinder:
         self.node_type = node_type
         self.pmods = pmods
         self.edge = neighbor_edge_type
-        self.edge_filters = " AND " + " AND ".join(neighbor_edge_filters)
+        self.edge_filters = " AND " + " AND ".join(neighbor_edge_filters) if neighbor_edge_filters else ""
         self.print_sql = print_sql
 
         self.results = None
@@ -102,8 +102,6 @@ class InteractorFinder:
 
     def find_interactors(self) -> pd.DataFrame:
         """Return interactors of the target."""
-        edge_filter = self.edge_filters if self.edge_filters else ""
-
         sql = INTERACTOR_QUERY
 
         cols = ["target_species", "pmid", "pmc", "interactor_type", "interactor_name", "interactor_bel",
@@ -111,7 +109,7 @@ class InteractorFinder:
 
         if self.node_type != 'protein' or not self.pmods:
             sql = sql.replace('MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH')
-            formatted_sql = sql.format(self.node_type, self.node_name, self.edge, edge_filter)
+            formatted_sql = sql.format(self.node_type, self.node_name, self.edge, self.edge_filters)
 
         else:
             if 'all' in self.pmods:
@@ -125,7 +123,7 @@ class InteractorFinder:
             if 'pho' in self.pmods or 'all' in self.pmods:
                 pmod_string = pmod_string.replace(")", " OR name like '%phosphorylat%')")
 
-            formatted_sql = sql.format(pmod_string, self.node_type, self.node_name, self.edge, edge_filter)
+            formatted_sql = sql.format(pmod_string, self.node_type, self.node_name, self.edge, self.edge_filters)
 
         df_results = self.__query_graphstore(formatted_sql)
 
@@ -140,8 +138,6 @@ class InteractorFinder:
 
         Requires specialized queries and therefore is separate from `find_interactors`.
         """
-        edge_filter = self.edge_filters if self.edge_filters else ""
-
         cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel', 'interactor_type',
                 'interactor_name', 'relation_type', 'target_bel', 'target_symbol', 'target_type',
                 'pmid', 'pmc', 'rel_pub_year', 'rel_rid', 'drug_rel_rid', 'drug_rel_actions',
@@ -155,9 +151,9 @@ class InteractorFinder:
             capsule_query_2 = CAPSULE_DRUGGABLE_COMPLEX.replace(
                 'MATCH {{class:pmod, as:pmod{}}}<-has__pmod-', 'MATCH'
             )
-            formatted_pure_sql = pure_query.format(self.node_type, self.node_name, edge_filter)
-            formatted_capsule_sql_1 = capsule_query_1.format(self.node_type, self.node_name, edge_filter)
-            formatted_capsule_sql_2 = capsule_query_2.format(self.node_type, self.node_name, edge_filter)
+            formatted_pure_sql = pure_query.format(self.node_type, self.node_name, self.edge_filters)
+            formatted_capsule_sql_1 = capsule_query_1.format(self.node_type, self.node_name, self.edge_filters)
+            formatted_capsule_sql_2 = capsule_query_2.format(self.node_type, self.node_name, self.edge_filters)
 
         else:
             if 'all' in self.pmods:
@@ -172,13 +168,13 @@ class InteractorFinder:
 
             # Drugs only for humans so only check one
             formatted_pure_sql = PURE_DRUGGABLE_QUERY.format(
-                pmod_string, self.node_type, self.node_name, edge_filter
+                pmod_string, self.node_type, self.node_name, self.edge_filters
             )
             formatted_capsule_sql_1 = CAPSULE_DRUGGABLE_MODIFIED.format(
-                pmod_string, self.node_type, self.node_name, edge_filter
+                pmod_string, self.node_type, self.node_name, self.edge_filters
             )
             formatted_capsule_sql_2 = CAPSULE_DRUGGABLE_COMPLEX.format(
-                pmod_string, self.node_type, self.node_name, edge_filter
+                pmod_string, self.node_type, self.node_name, self.edge_filters
             )
 
         logger.info("Querying database...")
@@ -230,16 +226,3 @@ def get_interactor_list(results_df: pd.DataFrame):
         interactors.add(name)
 
     return interactors
-
-if __name__ == "__main__":
-    finder = InteractorFinder(
-        node_name="MAPT",
-        node_type="protein",
-        neighbor_edge_type="causal",
-        print_sql=True,
-        neighbor_edge_filters=["autophagy=true"],
-        pmods=["pho"]
-    )
-    neighbors = finder.find_interactors()
-    druggables = finder.druggable_interactors()
-    a = 2

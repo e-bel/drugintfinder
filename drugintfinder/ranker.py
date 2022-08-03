@@ -8,8 +8,7 @@ import pandas as pd
 from tqdm import tqdm
 from typing import Optional
 from ebel_rest import query as rest_query
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.orm.exc import MultipleResultsFound
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from drugintfinder.constants import PATENTS, INTERACTORS, PRODUCTS, IDENTIFIERS, NEGREG, POSREG, SYNERGY, POINTS, \
     DAC, ACTION_MAPPER, CT_MAPPER, CLINICAL_TRIALS, TRIALS, IN_COUNT, OUT_COUNT, PUBCHEM_BIOASSAY_API, UNIPROT_ID, \
@@ -481,8 +480,7 @@ class Ranker:
         """Count the number of incoming, outgoing, and total edges for each interactor."""
         edge_counts = dict()
         logger.info("Gathering edge counts")
-        for symbol in tqdm(self.interactor_metadata.keys(), total=len(self.interactor_metadata),
-                           desc="Counting edges"):
+        for symbol in self.interactor_metadata.keys():
             counts = self.__query_db_edge_counts(symbol)
             if not counts:
                 counts = self.__query_graphstore_edge_counts(symbol)
@@ -594,3 +592,9 @@ class Ranker:
             summary_df = summary_df.sort_values(by="Number of BioAssays for Target", ascending=False)
 
         return summary_df
+
+if __name__ == "__main__":
+    ranker = Ranker(name="MAPT", pmods=["pho"], print_sql=False)
+    ranker.rank()
+    summary = ranker.summarize()
+    assert len(summary) >= 847

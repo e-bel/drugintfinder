@@ -10,7 +10,7 @@ from .constants import CD33, PROTEIN, PHOSPHORYLATION, CAUSAL
 def finder():
     """Create reusable interactor finder object."""
     finder = InteractorFinder(
-        node_name=CD33, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL, node_type=PROTEIN, print_sql=True
+        node_name=CD33, pmods=[PHOSPHORYLATION], neighbor_edge_type=CAUSAL, node_type=PROTEIN, print_sql=False
     )
     return finder
 
@@ -39,7 +39,7 @@ class TestInteractorFinder:
 
         assert results is not None
         assert isinstance(results, pd.DataFrame)
-        assert len(results) > 4500
+        assert len(results) >= 70
 
         expected_cols = ['drug', 'capsule_interactor_type', 'capsule_interactor_bel', 'interactor_bel',
                          'interactor_type', 'interactor_name', 'relation_type', 'target_bel', 'target_symbol',
@@ -54,7 +54,7 @@ class TestInteractorFinder:
 
         ui = finder.unique_interactors()
         assert isinstance(ui, tuple)
-        assert len(ui) >= 80
+        assert len(ui) >= 4
 
     def test_unique_drugs(self, finder):
         """Test the unique_drugs method."""
@@ -62,4 +62,4 @@ class TestInteractorFinder:
 
         ud = finder.unique_drugs()
         assert isinstance(ud, tuple)
-        assert len(ud) >= 577
+        assert len(ud) >= 20
