@@ -140,37 +140,36 @@ target.species as target_species
 """
 
 PURE_DRUGGABLE_QUERY = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
-        {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
-        .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change'{})}}
-        .outV(){{class:bel, as:interactor}}
-        .inE(){{class:has_drug_target, as:drug_rel}}
-        .outV(){{class:drug, as:drug}}
-        RETURN
-        pmod.type as pmod_type,
-        relation.@class as relation_type,
-        relation.citation.pub_date.subString(0, 4) as rel_pub_year,
-        target.name as target_symbol,
-        target.bel as target_bel,
-        target.@class as target_type,
-        interactor.bel as interactor_bel,
-        interactor.name as interactor_name,
-        interactor.@class as interactor_type,
-        drug.label as drug,
-        drug.drugbank_id as drugbank_id,
-        drug.drugbank.chembl_id as chembl_id,
-        drug.drugbank.pubchem_cid as pubchem_id,
-        relation.pmid as pmid,
-        relation.pmc as pmc,
-        relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid,
-        drug_rel.actions as drug_rel_actions
-        """
+{{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
+.inE(){{class:causal,as:relation, where:(@class != 'causes_no_change'{})}}
+.outV(){{class:bel, as:interactor}}
+.inE(){{class:has_drug_target, as:drug_rel}}
+.outV(){{class:drug, as:drug}}
+RETURN
+pmod.type as pmod_type,
+relation.@class as relation_type,
+relation.citation.pub_date.subString(0, 4) as rel_pub_year,
+target.name as target_symbol,
+target.bel as target_bel,
+target.@class as target_type,
+interactor.bel as interactor_bel,
+interactor.name as interactor_name,
+interactor.@class as interactor_type,
+drug.label as drug,
+drug.drugbank_id as drugbank_id,
+drug.drugbank.chembl_id as chembl_id,
+drug.drugbank.pubchem_cid as pubchem_id,
+relation.pmid as pmid,
+relation.pmc as pmc,
+relation.@rid.asString() as rel_rid,
+drug_rel.@rid.asString() as drug_rel_rid,
+drug_rel.actions as drug_rel_actions
+"""
 
 CAPSULE_PREFIX = """MATCH {{class:pmod, as:pmod{}}}<-has__pmod-
-        {{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
-        .inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
-        .outV(){{class:bel, as:capsule_interactor}}
-"""
+{{class:{}, as:target, WHERE:(name.toLowerCase() = '{}')}}
+.inE(){{class:causal,as:relation, where:(@class != 'causes_no_change')}}
+.outV(){{class:bel, as:capsule_interactor}}"""
 
 CAPSULE_MODIFIED_PROTEIN = """
 .inE('has_modified_protein', 'has_variant_protein', 'has_located_protein', 'has_fragmented_protein')
@@ -180,29 +179,29 @@ CAPSULE_HAS_PROTEIN = """.outE('has__protein')
 .inV(){{class:protein, as:pure_interactor, WHERE:(pure=true)}}"""
 
 CAPSULE_SUFFIX = """.inE(){{class:has_drug_target, as:drug_rel}}
-        .outV(){{class:drug, as:drug}}
-        RETURN
-        pmod.type as pmod_type,
-        drug.label as drug,
-        drug.drugbank_id as drugbank_id,
-        drug.drugbank.chembl_id as chembl_id,
-        drug.drugbank.pubchem_cid as pubchem_id,
-        pure_interactor.@class as interactor_type,
-        pure_interactor.bel as interactor_bel,
-        pure_interactor.name as interactor_name,
-        capsule_interactor.bel as capsule_interactor_bel,
-        capsule_interactor.@class as capsule_interactor_type,
-        relation.@class as relation_type,
-        relation.citation.pub_date.subString(0, 4) as rel_pub_year,
-        target.name as target_symbol,
-        target.bel as target_bel,
-        target.@class as target_type,
-        relation.pmid as pmid,
-        relation.pmc as pmc,
-        relation.@rid.asString() as rel_rid,
-        drug_rel.@rid.asString() as drug_rel_rid,
-        drug_rel.actions as drug_rel_actions
-        """
+.outV(){{class:drug, as:drug}}
+RETURN
+pmod.type as pmod_type,
+drug.label as drug,
+drug.drugbank_id as drugbank_id,
+drug.drugbank.chembl_id as chembl_id,
+drug.drugbank.pubchem_cid as pubchem_id,
+pure_interactor.@class as interactor_type,
+pure_interactor.bel as interactor_bel,
+pure_interactor.name as interactor_name,
+capsule_interactor.bel as capsule_interactor_bel,
+capsule_interactor.@class as capsule_interactor_type,
+relation.@class as relation_type,
+relation.citation.pub_date.subString(0, 4) as rel_pub_year,
+target.name as target_symbol,
+target.bel as target_bel,
+target.@class as target_type,
+relation.pmid as pmid,
+relation.pmc as pmc,
+relation.@rid.asString() as rel_rid,
+drug_rel.@rid.asString() as drug_rel_rid,
+drug_rel.actions as drug_rel_actions
+"""
 
 CAPSULE_DRUGGABLE_MODIFIED = CAPSULE_PREFIX + CAPSULE_MODIFIED_PROTEIN + CAPSULE_SUFFIX
 CAPSULE_DRUGGABLE_COMPLEX = CAPSULE_PREFIX + CAPSULE_HAS_PROTEIN + CAPSULE_SUFFIX
