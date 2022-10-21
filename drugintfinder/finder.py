@@ -50,7 +50,7 @@ class InteractorFinder:
         """
         populate()  # Populate tables if empty
 
-        self.node_name = node_name.lower()
+        self.node_name = node_name
         self.node_type = node_type
         self.pmods = pmods
         self.edge = neighbor_edge_type
